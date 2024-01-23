@@ -23,6 +23,36 @@ include_directories(deps/noise)
 include_directories(deps/sqlite)
 include_directories(deps/tinycthread)
 
+# Find/Configure SDL3
+find_package(SDL3 QUIET)
+if(SDL3_FOUND)
+    message(STATUS "Using SDL3 via find_package")
+endif()
+
+# Check current project for SDL3
+if(NOT SDL3_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/SDL/CMakeLists.txt")
+    add_subdirectory(SDL)
+    message(STATUS "Using SDL3 via add_subdirectory")
+    set(SDL3_FOUND TRUE)
+endif()
+
+# If all else fails, download SDL3
+if(NOT SDL3_FOUND)
+    include(FetchContent)
+    set(SDL_SHARED TRUE CACHE BOOL "Build a SDL shared library (if available)")
+    set(SDL_STATIC TRUE CACHE BOOL "Build a SDL static library (if available)")
+    FetchContent_Declare(
+        SDL
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG main  # Replace this with a particular git tag or git hash
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+    )
+    message(STATUS "Using SDL3 via FetchContent")
+    FetchContent_MakeAvailable(SDL)
+    set_property(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/sdl-src" PROPERTY EXCLUDE_FROM_ALL TRUE)
+endif()
+
 if(MINGW)
     set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH}
         "C:/Program Files/CURL/lib" "C:/Program Files (x86)/CURL/lib")
@@ -35,15 +65,15 @@ include_directories(${CURL_INCLUDE_DIR})
 
 if(APPLE)
     target_link_libraries(craft glfw
-        ${GLFW_LIBRARIES} ${CURL_LIBRARIES})
+        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
 endif()
 
 if(UNIX)
     target_link_libraries(craft dl glfw
-        ${GLFW_LIBRARIES} ${CURL_LIBRARIES})
+        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
 endif()
 
 if(MINGW)
     target_link_libraries(craft ws2_32.lib glfw
-        ${GLFW_LIBRARIES} ${CURL_LIBRARIES})
+        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
 endif()
