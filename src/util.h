@@ -1,7 +1,7 @@
 #ifndef _util_h_
 #define _util_h_
 
-#include <GL/glew.h>
+#include <glad/glad.h>
 
 #include "config.h"
 

@@ -6,12 +6,20 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+string(COMPARE EQUAL "${CMAKE_BUILD_TYPE}" "RelWithDebInfo" ENABLE_DEBUGGING)
+string(COMPARE EQUAL "${CMAKE_BUILD_TYPE}" "Debug" ENABLE_DEBUGGING2)
+
+if(ENABLE_DEBUGGING OR ENABLE_DEBUGGING2)
+    message(INFO ": Debugging enabled for ${PROJECT_NAME}")
+    add_compile_definitions("DEBUGGING")
+endif()
+
 file(GLOB SOURCE_FILES src/*.c)
 
 add_executable(
     craft
     ${SOURCE_FILES}
-    deps/glew/src/glew.c
+    deps/glad/src/glad_4_4.c
     deps/lodepng/lodepng.c
     deps/noise/noise.c
     deps/sqlite/sqlite3.c
@@ -24,7 +32,7 @@ add_executable(
     deps/dearimgui/backends/imgui_impl_opengl3.cpp
     deps/dearimgui/backends/imgui_impl_sdl3.cpp)
 
-include_directories(deps/glew/include)
+include_directories(deps/glad/include)
 include_directories(deps/lodepng)
 include_directories(deps/noise)
 include_directories(deps/sqlite)
