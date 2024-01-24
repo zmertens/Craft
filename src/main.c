@@ -13,7 +13,7 @@
 #include <SDL3/SDL_opengl.h>
 #endif
 
-#include <curl/curl.h>
+// #include <curl/curl.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2402,14 +2402,23 @@ void create_window_and_context() {
     Uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
     int window_width = WINDOW_WIDTH;
     int window_height = WINDOW_HEIGHT;
-    // GLFWmonitor *monitor = NULL;
     if (FULLSCREEN) {
-        int mode_count;
-        // SDL primray display
-        // monitor = glfwGetPrimaryMonitor();
-        // const GLFWvidmode *modes = glfwGetVideoModes(monitor, &mode_count);
-        // window_width = modes[mode_count - 1].width;
-        // window_height = modes[mode_count - 1].height;
+        SDL_DisplayID display = SDL_GetPrimaryDisplay();
+        int num_modes = 0;
+        SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &num_modes);
+        if (modes) {
+            for (int i = 0; i < num_modes; ++i) {
+                SDL_DisplayMode *mode = modes[i];
+                SDL_Log("Display %" SDL_PRIu32 " mode %d: %dx%d@%gx %gHz\n",
+                    display, i, mode->w, mode->h, mode->pixel_density, mode->refresh_rate);
+            }
+        }
+        
+        window_width = modes[num_modes - 1]->w;
+        window_height = modes[num_modes - 1]->h;
+
+        SDL_free(modes);
+
         window_flags |= SDL_WINDOW_FULLSCREEN;
     } else {
         window_flags |= SDL_WINDOW_RESIZABLE;

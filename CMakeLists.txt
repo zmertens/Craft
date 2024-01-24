@@ -70,17 +70,17 @@ if(MINGW)
         "C:/Program Files/CURL/include" "C:/Program Files (x86)/CURL/include")
 endif()
 
-find_package(CURL REQUIRED)
-include_directories(${CURL_INCLUDE_DIR})
+# find_package(CURL REQUIRED)
+# include_directories(${CURL_INCLUDE_DIR})
 
 if(APPLE)
-    target_link_libraries(craft OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft OpenGL::GL SDL3::SDL3)
 endif()
 
 if(UNIX)
-    target_link_libraries(craft dl OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft dl OpenGL::GL SDL3::SDL3)
 endif()
 
 if(MINGW)
-    target_link_libraries(craft ws2_32.lib OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft ws2_32.lib OpenGL::GL SDL3::SDL3)
 endif()
