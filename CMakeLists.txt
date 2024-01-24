@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.2)
 
 project(craft)
 
@@ -15,13 +15,13 @@ add_executable(
 
 add_definitions(-std=c99 -O3)
 
-add_subdirectory(deps/glfw)
 include_directories(deps/glew/include)
-include_directories(deps/glfw/include)
 include_directories(deps/lodepng)
 include_directories(deps/noise)
 include_directories(deps/sqlite)
 include_directories(deps/tinycthread)
+
+find_package(OpenGL REQUIRED)
 
 # Find/Configure SDL3
 find_package(SDL3 QUIET)
@@ -64,16 +64,13 @@ find_package(CURL REQUIRED)
 include_directories(${CURL_INCLUDE_DIR})
 
 if(APPLE)
-    target_link_libraries(craft glfw
-        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
 endif()
 
 if(UNIX)
-    target_link_libraries(craft dl glfw
-        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft dl OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
 endif()
 
 if(MINGW)
-    target_link_libraries(craft ws2_32.lib glfw
-        ${GLFW_LIBRARIES} SDL3::SDL3 ${CURL_LIBRARIES})
+    target_link_libraries(craft ws2_32.lib OpenGL::GL SDL3::SDL3 ${CURL_LIBRARIES})
 endif()

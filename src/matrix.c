@@ -1,10 +1,13 @@
 #include <math.h>
+
+#include <SDL3/SDL.h>
+
 #include "config.h"
 #include "matrix.h"
 #include "util.h"
 
 void normalize(float *x, float *y, float *z) {
-    float d = sqrtf((*x) * (*x) + (*y) * (*y) + (*z) * (*z));
+    float d = SDL_sqrtf((*x) * (*x) + (*y) * (*y) + (*z) * (*z));
     *x /= d; *y /= d; *z /= d;
 }
 
@@ -48,8 +51,8 @@ void mat_translate(float *matrix, float dx, float dy, float dz) {
 
 void mat_rotate(float *matrix, float x, float y, float z, float angle) {
     normalize(&x, &y, &z);
-    float s = sinf(angle);
-    float c = cosf(angle);
+    float s = SDL_sinf(angle);
+    float c = SDL_cosf(angle);
     float m = 1 - c;
     matrix[0] = m * x * x + c;
     matrix[1] = m * x * y - z * s;
@@ -177,7 +180,7 @@ void mat_perspective(
     float znear, float zfar)
 {
     float ymax, xmax;
-    ymax = znear * tanf(fov * PI / 360.0);
+    ymax = znear * SDL_tanf(fov * PI / 360.0);
     xmax = ymax * aspect;
     mat_frustum(matrix, -xmax, xmax, -ymax, ymax, znear, zfar);
 }
@@ -221,7 +224,7 @@ void set_matrix_3d(
     mat_identity(a);
     mat_translate(b, -x, -y, -z);
     mat_multiply(a, b, a);
-    mat_rotate(b, cosf(rx), 0, sinf(rx), ry);
+    mat_rotate(b, SDL_cosf(rx), 0, SDL_sinf(rx), ry);
     mat_multiply(a, b, a);
     mat_rotate(b, 0, 1, 0, -rx);
     mat_multiply(a, b, a);

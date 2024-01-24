@@ -1,4 +1,5 @@
 #include <math.h>
+
 #include "cube.h"
 #include "item.h"
 #include "matrix.h"
@@ -180,7 +181,7 @@ void make_player(
     mat_identity(ma);
     mat_rotate(mb, 0, 1, 0, rx);
     mat_multiply(ma, mb, ma);
-    mat_rotate(mb, cosf(rx), 0, sinf(rx), -ry);
+    mat_rotate(mb, SDL_cosf(rx), 0, SDL_sinf(rx), -ry);
     mat_multiply(ma, mb, ma);
     mat_apply(data, ma, 36, 3, 10);
     mat_translate(mb, x, y, z);
@@ -326,9 +327,9 @@ int _make_sphere(
         normalize(ac + 0, ac + 1, ac + 2);
         normalize(bc + 0, bc + 1, bc + 2);
         float tab[2], tac[2], tbc[2];
-        tab[0] = 0; tab[1] = 1 - acosf(ab[1]) / PI;
-        tac[0] = 0; tac[1] = 1 - acosf(ac[1]) / PI;
-        tbc[0] = 0; tbc[1] = 1 - acosf(bc[1]) / PI;
+        tab[0] = 0; tab[1] = 1 - SDL_acosf(ab[1]) / PI;
+        tac[0] = 0; tac[1] = 1 - SDL_acosf(ac[1]) / PI;
+        tbc[0] = 0; tbc[1] = 1 - SDL_acosf(bc[1]) / PI;
         int total = 0;
         int n;
         n = _make_sphere(data, r, detail - 1, a, ab, ac, ta, tab, tac);

@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#include <SDL3/SDL.h>
+
 #include "lodepng.h"
 #include "matrix.h"
 #include "util.h"
@@ -18,10 +21,11 @@ double rand_double() {
 
 void update_fps(FPS *fps) {
     fps->frames++;
-    double now = glfwGetTime();
+    double now = SDL_GetTicks();
     double elapsed = now - fps->since;
     if (elapsed >= 1) {
-        fps->fps = round(fps->frames / elapsed);
+        // fps->fps = round(fps->frames / elapsed);
+        fps->fps = SDL_roundf(fps->frames / elapsed);
         fps->frames = 0;
         fps->since = now;
     }
