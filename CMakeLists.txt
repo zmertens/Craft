@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.2)
 
 project(craft)
 
-FILE(GLOB SOURCE_FILES src/*.c)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+file(GLOB SOURCE_FILES src/*.c)
 
 add_executable(
     craft
@@ -11,15 +15,21 @@ add_executable(
     deps/lodepng/lodepng.c
     deps/noise/noise.c
     deps/sqlite/sqlite3.c
-    deps/tinycthread/tinycthread.c)
-
-add_definitions(-std=c99 -O3)
+    deps/tinycthread/tinycthread.c
+    deps/dearimgui/imgui.cpp
+    deps/dearimgui/imgui_demo.cpp
+    deps/dearimgui/imgui_draw.cpp
+    deps/dearimgui/imgui_tables.cpp
+    deps/dearimgui/imgui_widgets.cpp
+    deps/dearimgui/backends/imgui_impl_opengl3.cpp
+    deps/dearimgui/backends/imgui_impl_sdl3.cpp)
 
 include_directories(deps/glew/include)
 include_directories(deps/lodepng)
 include_directories(deps/noise)
 include_directories(deps/sqlite)
 include_directories(deps/tinycthread)
+include_directories(deps/dearimgui)
 
 find_package(OpenGL REQUIRED)
 

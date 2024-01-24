@@ -1,11 +1,18 @@
 #include <GL/glew.h>
+
+// #include "imgui.h"
+// #include "backends/imgui_impl_sdl3.h"
+// #include "backends/imgui_impl_opengl3.h"
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#if defined(__ANDROID__)
+
+#if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <SDL3/SDL_opengles2.h>
 #else
 #include <SDL3/SDL_opengl.h>
 #endif
+
 #include <curl/curl.h>
 #include <math.h>
 #include <stdio.h>
@@ -25,6 +32,28 @@
 #include "tinycthread.h"
 #include "util.h"
 #include "world.h"
+
+GLenum glCheckError_(const char *file, int line)
+{
+    GLenum errorCode;
+    while ((errorCode = glGetError()) != GL_NO_ERROR)
+    {
+        char* error;
+        switch (errorCode)
+        {
+            case GL_INVALID_ENUM: error = "INVALID_ENUM"; break;
+            case GL_INVALID_VALUE: error = "INVALID_VALUE"; break;
+            case GL_INVALID_OPERATION: error = "INVALID_OPERATION"; break;
+            case GL_STACK_OVERFLOW: error = "STACK_OVERFLOW"; break;
+            case GL_STACK_UNDERFLOW: error = "STACK_UNDERFLOW"; break;
+            case GL_OUT_OF_MEMORY: error = "OUT_OF_MEMORY"; break;
+            case GL_INVALID_FRAMEBUFFER_OPERATION: error = "INVALID_FRAMEBUFFER_OPERATION"; break;
+        }
+        SDL_Log("OpenGL ERROR: %s\n\t\tFILE: %s, LINE: %d\n", error, file, line);
+    }
+    return errorCode;
+}
+#define glCheckError() glCheckError_(__FILE__, __LINE__) 
 
 #define MAX_CHUNKS 8192
 #define MAX_PLAYERS 128
@@ -2634,6 +2663,7 @@ int main(int argc, char **argv) {
 
     SDL_ShowWindow(g->window);
 
+    // IMGUI_CHECKVERSION();
 
     // glfwSetInputMode(g->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     // glfwSetKeyCallback(g->window, on_key);
@@ -2997,6 +3027,7 @@ int main(int argc, char **argv) {
         }
 
         SDL_GL_SwapWindow(g->window);
+        // glCheckError();
     } // RENDER LOOP
 
     // SHUTDOWN //
