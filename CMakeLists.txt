@@ -19,7 +19,7 @@ file(GLOB SOURCE_FILES src/*.c)
 add_executable(
     craft
     ${SOURCE_FILES}
-    deps/glad/src/glad_4_4.c
+    deps/glad/src/glad_3_0.c
     deps/lodepng/lodepng.c
     deps/noise/noise.c
     deps/sqlite/sqlite3.c

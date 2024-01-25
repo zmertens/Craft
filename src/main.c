@@ -60,90 +60,6 @@ void dumpGLInfo(int dumpExtensions) {
     }
 }
 
-void APIENTRY myOpenGLDebugCallback(GLenum source, GLenum type, GLuint id,
-	GLenum severity, GLsizei length, const GLchar *msg, const void *param) {
-	
-	char *sourceStr;
-	switch(source) {
-	case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-		sourceStr = "WindowSys";
-		break;
-	case GL_DEBUG_SOURCE_APPLICATION:
-		sourceStr = "App";
-		break;
-	case GL_DEBUG_SOURCE_API:
-		sourceStr = "OpenGL";
-		break;
-	case GL_DEBUG_SOURCE_SHADER_COMPILER:
-		sourceStr = "ShaderCompiler";
-		break;
-	case GL_DEBUG_SOURCE_THIRD_PARTY:
-		sourceStr = "3rdParty";
-		break;
-	case GL_DEBUG_SOURCE_OTHER:
-		sourceStr = "Other";
-		break;
-	default:
-		sourceStr = "Unknown";
-	}
-	
-	char *typeStr;
-	switch(type) {
-	case GL_DEBUG_TYPE_ERROR:
-		typeStr = "Error";
-		break;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-		typeStr = "Deprecated";
-		break;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-		typeStr = "Undefined";
-		break;
-	case GL_DEBUG_TYPE_PORTABILITY:
-		typeStr = "Portability";
-		break;
-	case GL_DEBUG_TYPE_PERFORMANCE:
-		typeStr = "Performance";
-		break;
-	case GL_DEBUG_TYPE_MARKER:
-		typeStr = "Marker";
-		break;
-	case GL_DEBUG_TYPE_PUSH_GROUP:
-		typeStr = "PushGrp";
-		break;
-	case GL_DEBUG_TYPE_POP_GROUP:
-		typeStr = "PopGrp";
-		break;
-	case GL_DEBUG_TYPE_OTHER:
-		typeStr = "Other";
-		break;
-	default:
-		typeStr = "Unknown";
-	}
-	
-	char *sevStr;
-	switch(severity) {
-	case GL_DEBUG_SEVERITY_HIGH:
-		sevStr = "HIGH";
-		break;
-	case GL_DEBUG_SEVERITY_MEDIUM:
-		sevStr = "MED";
-		break;
-	case GL_DEBUG_SEVERITY_LOW:
-		sevStr = "LOW";
-		break;
-	case GL_DEBUG_SEVERITY_NOTIFICATION:
-		sevStr = "NOTIFY";
-		break;
-	default:
-		sevStr = "UNK";
-	}
-	
-	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-        "%s:%s[%s](%d): %s\n",
-        sourceStr, typeStr, sevStr, 
-		id, msg);		
-} // myOpenGLDebugCallback
-
 GLenum glCheckError_(const char *file, int line)
 {
     GLenum errorCode;
@@ -474,12 +390,12 @@ void draw_triangles_3d_text(Attrib *attrib, GLuint buffer, int count) {
 }
 
 void draw_triangles_3d(Attrib *attrib, GLuint buffer, int count) {
-    glCheckError();
+    
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    // glEnableVertexAttribArray(attrib->position);
-    // glEnableVertexAttribArray(attrib->normal);
-    // glEnableVertexAttribArray(attrib->uv);
-    glCheckError();
+    glEnableVertexAttribArray(attrib->position);
+    glEnableVertexAttribArray(attrib->normal);
+    glEnableVertexAttribArray(attrib->uv);
+    
     glVertexAttribPointer(attrib->position, 3, GL_FLOAT, GL_FALSE,
         sizeof(GLfloat) * 8, 0);
     glVertexAttribPointer(attrib->normal, 3, GL_FLOAT, GL_FALSE,
@@ -1873,12 +1789,12 @@ void render_sky(Attrib *attrib, Player *player, GLuint buffer) {
     set_matrix_3d(
         matrix, g->width, g->height,
         0, 0, 0, s->rx, s->ry, g->fov, 0, g->render_radius);
-    glCheckError();
+    
     glUseProgram(attrib->program);
     glUniformMatrix4fv(attrib->matrix, 1, GL_FALSE, matrix);
     glUniform1i(attrib->sampler, 2);
     glUniform1f(attrib->timer, time_of_day());
-    glCheckError();
+    
     draw_triangles_3d(attrib, buffer, 512 * 3);
 }
 
@@ -2546,8 +2462,8 @@ void create_window_and_context() {
 #else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #endif // DEBUGGING
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -2803,18 +2719,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-
-#if defined(DEBUGGING)
     dumpGLInfo(DONT_DUMP_GL_EXTENSIONS);
-
-    glDebugMessageCallback(myOpenGLDebugCallback, NULL);
-    glDebugMessageControl(GL_DONT_CARE, 
-        GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
-    glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION,
-        GL_DEBUG_TYPE_MARKER, 0,
-        GL_DEBUG_SEVERITY_NOTIFICATION, -1,
-        "OpenGL debugging");
-#endif // DEBUGGING
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -2957,18 +2862,8 @@ int main(int argc, char **argv) {
     FPS fps = {0, 0, 0};
     double last_commit = SDL_GetTicks() / 1000.0;
     double last_update = SDL_GetTicks() / 1000.0;
-    GLuint vao_sky, vao_chunk,
-        vao_signs, vao_sign, vao_player,
-        vao_text;
-    glGenVertexArrays(1, &vao_sky);
-    glBindVertexArray(vao_sky);
-    glCheckError();
+    
     GLuint sky_buffer = gen_sky_buffer();
-    glGenVertexArrays(1, &vao_chunk);
-    glGenVertexArrays(1, &vao_text);
-    glGenVertexArrays(1, &vao_signs);
-    glGenVertexArrays(1, &vao_sign);
-    glGenVertexArrays(1, &vao_player);
     
     Player *me = g->players;
     State *s = &g->players->state;
@@ -2985,7 +2880,7 @@ int main(int argc, char **argv) {
     }
 
     // RENDER LOOP //
-    int running = 2;
+    int running = 1;
     while (running) {
         double previous = SDL_GetTicks() / 1000.0;
         SDL_Event event;
@@ -3063,33 +2958,25 @@ int main(int argc, char **argv) {
         // PREPARE TO RENDER //
         g->observe1 = g->observe1 % g->player_count;
         g->observe2 = g->observe2 % g->player_count;
-        glCheckError();
-        glBindVertexArray(vao_chunk);
+        
         delete_chunks();
         del_buffer(me->buffer);
-        glBindVertexArray(vao_player);
-        glCheckError();
+        
         me->buffer = gen_player_buffer(s->x, s->y, s->z, s->rx, s->ry);
         for (int i = 1; i < g->player_count; i++) {
             interpolate_player(g->players + i);
         }
         Player *player = g->players + g->observe1;
-        glCheckError();
+        
         // RENDER 3-D SCENE //
         glClear(GL_COLOR_BUFFER_BIT);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glCheckError();
-        glBindVertexArray(vao_sky);
-        glCheckError();
+        
         render_sky(&sky_attrib, player, sky_buffer);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glBindVertexArray(vao_chunk);
         int face_count = render_chunks(&block_attrib, player);
-        glBindVertexArray(vao_signs);
         render_signs(&text_attrib, player);
-        glBindVertexArray(vao_sign);
         render_sign(&text_attrib, player);
-        glBindVertexArray(vao_player);
         render_players(&block_attrib, player);
         if (SHOW_WIREFRAME) {
             render_wireframe(&line_attrib, player);
@@ -3120,7 +3007,6 @@ int main(int argc, char **argv) {
                 chunked(s->x), chunked(s->z), s->x, s->y, s->z,
                 g->player_count, g->chunk_count,
                 face_count * 2, hour, am_pm, fps.fps);
-            glBindVertexArray(vao_text);
             render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
             ty -= ts * 2;
         }
@@ -3128,7 +3014,6 @@ int main(int argc, char **argv) {
             for (int i = 0; i < MAX_MESSAGES; i++) {
                 int index = (g->message_index + i) % MAX_MESSAGES;
                 if (strlen(g->messages[index])) {
-                    glBindVertexArray(vao_text);
                     render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts,
                         g->messages[index]);
                     ty -= ts * 2;
@@ -3137,16 +3022,15 @@ int main(int argc, char **argv) {
         }
         if (g->typing) {
             snprintf(text_buffer, 1024, "> %s", g->typing_buffer);
-            glBindVertexArray(vao_text);
             render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
             ty -= ts * 2;
         }
         if (SHOW_PLAYER_NAMES) {
             if (player != me) {
-                glCheckError();
+                
                 render_text(&text_attrib, ALIGN_CENTER,
                     g->width / 2, ts, ts, player->name);
-                glCheckError();
+                
             }
             Player *other = player_crosshair(player);
             if (other) {
@@ -3179,31 +3063,26 @@ int main(int argc, char **argv) {
             g->ortho = 0;
             g->fov = 65;
 
-            glCheckError();
-            glBindVertexArray(vao_sky);
+            
             render_sky(&sky_attrib, player, sky_buffer);
-            glCheckError();
+            
             glClear(GL_DEPTH_BUFFER_BIT);
-            glBindVertexArray(vao_chunk);
             render_chunks(&block_attrib, player);
-            glCheckError();
-            glBindVertexArray(vao_signs);
+            
             render_signs(&text_attrib, player);
-            glCheckError();
-            glBindVertexArray(vao_player);
+            
             render_players(&block_attrib, player);
-            glCheckError();
+            
             glClear(GL_DEPTH_BUFFER_BIT);
-            glCheckError();
+            
             if (SHOW_PLAYER_NAMES) {
-                glCheckError();
+                
                 render_text(&text_attrib, ALIGN_CENTER,
                     pw / 2, ts, ts, player->name);
-                glCheckError();
+                
             }
         }
-        glCheckError();
-        running--;
+        
         SDL_GL_SwapWindow(g->window);
     } // RENDER LOOP
 
@@ -3218,11 +3097,6 @@ int main(int argc, char **argv) {
     delete_all_players();
 
     SDL_Log("Cleaning up OpenGL objects. . .");
-    glDeleteVertexArrays(1, &vao_sky);
-    glDeleteVertexArrays(1, &vao_chunk);
-    glDeleteVertexArrays(1, &vao_signs);
-    glDeleteVertexArrays(1, &vao_sign);
-    glDeleteVertexArrays(1, &vao_player);
 
     SDL_Log("Cleaning up SDL objects. . .");
     SDL_GL_DeleteContext(g->context);
