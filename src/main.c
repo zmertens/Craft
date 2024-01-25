@@ -3108,6 +3108,9 @@ int main(int argc, char **argv) {
             }
         
             SDL_GL_SwapWindow(g->window);
+#if defined(DEBUGGING)
+            glGetError();
+#endif
         } // MAIN LOOP
 
         // SHUTDOWN //
@@ -3122,11 +3125,23 @@ int main(int argc, char **argv) {
     } // RENDER LOOP
 
     SDL_Log("Cleaning up OpenGL objects. . .");
+    glDeleteTextures(1, &texture);
+    glDeleteTextures(1, &font);
+    glDeleteTextures(1, &sky);
+    glDeleteTextures(1, &sign);
+    glDeleteProgram(block_attrib.program);
+    glDeleteProgram(text_attrib.program);
+    glDeleteProgram(sky_attrib.program);
+    glDeleteProgram(line_attrib.program);
+#if defined(DEBUGGING)
+    glGetError();
+#endif
 
     SDL_Log("Cleaning up SDL objects. . .");
     SDL_GL_DeleteContext(g->context);
     SDL_DestroyWindow(g->window);
     SDL_Quit();
+    
     curl_global_cleanup();
 
     return 0;

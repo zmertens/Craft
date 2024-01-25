@@ -25,7 +25,7 @@ void update_fps(FPS *fps) {
     double elapsed = now - fps->since;
     if (elapsed >= 1) {
         // fps->fps = round(fps->frames / elapsed);
-        fps->fps = SDL_roundf(fps->frames / elapsed);
+        fps->fps = SDL_roundf(fps->frames * 1000.0 / elapsed);
         fps->frames = 0;
         fps->since = now;
     }
