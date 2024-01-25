@@ -11,7 +11,8 @@
 
 #define SDL_FUNCTION_POINTER_IS_VOID_POINTER
 
-// #include <curl/curl.h>
+#include <curl/curl.h>
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -192,6 +193,7 @@ typedef struct {
     int player_count;
     int typing;
     char typing_buffer[MAX_TEXT_LENGTH];
+    int text_len;
     int message_index;
     char messages[MAX_MESSAGES][MAX_TEXT_LENGTH];
     int width;
@@ -211,6 +213,8 @@ typedef struct {
     int server_port;
     int day_length;
     int time_changed;
+    int start_time;
+    int start_ticks;
     Block block0;
     Block block1;
     Block copy0;
@@ -224,12 +228,16 @@ int chunked(float x) {
     return SDL_floorf(SDL_roundf(x) / CHUNK_SIZE);
 }
 
+double get_time() {
+	return (SDL_GetTicks() + (double) g->start_time - (double) g->start_ticks) / 1000.0;
+}
+
 float time_of_day() {
     if (g->day_length <= 0) {
         return 0.5;
     }
     float t;
-    t = SDL_GetTicks() / 1000.0;
+    t = get_time();
     t = t / g->day_length;
     t = t - (int)t;
     return t;
@@ -492,7 +500,7 @@ void update_player(Player *player,
         State *s2 = &player->state2;
         memcpy(s1, s2, sizeof(State));
         s2->x = x; s2->y = y; s2->z = z; s2->rx = rx; s2->ry = ry;
-        s2->t = SDL_GetTicks();
+        s2->t = get_time();
         if (s2->rx - s1->rx > PI) {
             s1->rx += 2 * PI;
         }
@@ -512,7 +520,7 @@ void interpolate_player(Player *player) {
     State *s1 = &player->state1;
     State *s2 = &player->state2;
     float t1 = s2->t - s1->t;
-    float t2 = SDL_GetTicks() - s2->t;
+    float t2 = get_time() - s2->t;
     t1 = MIN(t1, 1);
     t1 = MAX(t1, 0.1);
     float p = MIN(t2 / t1, 1);
@@ -1196,7 +1204,7 @@ void compute_chunk(WorkerItem *item) {
     item->maxy = maxy;
     item->faces = faces;
     item->data = data;
-}
+} // compute_chunk
 
 void generate_chunk(Chunk *chunk, WorkerItem *item) {
     chunk->miny = item->miny;
@@ -2204,231 +2212,368 @@ void on_light() {
     }
 }
 
-// void on_left_click() {
-//     State *s = &g->players->state;
-//     int hx, hy, hz;
-//     int hw = hit_test(0, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
-//     if (hy > 0 && hy < 256 && is_destructable(hw)) {
-//         set_block(hx, hy, hz, 0);
-//         record_block(hx, hy, hz, 0);
-//         if (is_plant(get_block(hx, hy + 1, hz))) {
-//             set_block(hx, hy + 1, hz, 0);
-//         }
-//     }
-// }
+void on_left_click() {
+    State *s = &g->players->state;
+    int hx, hy, hz;
+    int hw = hit_test(0, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
+    if (hy > 0 && hy < 256 && is_destructable(hw)) {
+        set_block(hx, hy, hz, 0);
+        record_block(hx, hy, hz, 0);
+        if (is_plant(get_block(hx, hy + 1, hz))) {
+            set_block(hx, hy + 1, hz, 0);
+        }
+    }
+}
 
-// void on_right_click() {
-//     State *s = &g->players->state;
-//     int hx, hy, hz;
-//     int hw = hit_test(1, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
-//     if (hy > 0 && hy < 256 && is_obstacle(hw)) {
-//         if (!player_intersects_block(2, s->x, s->y, s->z, hx, hy, hz)) {
-//             set_block(hx, hy, hz, items[g->item_index]);
-//             record_block(hx, hy, hz, items[g->item_index]);
-//         }
-//     }
-// }
+void on_right_click() {
+    State *s = &g->players->state;
+    int hx, hy, hz;
+    int hw = hit_test(1, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
+    if (hy > 0 && hy < 256 && is_obstacle(hw)) {
+        if (!player_intersects_block(2, s->x, s->y, s->z, hx, hy, hz)) {
+            set_block(hx, hy, hz, items[g->item_index]);
+            record_block(hx, hy, hz, items[g->item_index]);
+        }
+    }
+}
 
-// void on_middle_click() {
-//     State *s = &g->players->state;
-//     int hx, hy, hz;
-//     int hw = hit_test(0, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
-//     for (int i = 0; i < item_count; i++) {
-//         if (items[i] == hw) {
-//             g->item_index = i;
-//             break;
-//         }
-//     }
-// }
+void on_middle_click() {
+    State *s = &g->players->state;
+    int hx, hy, hz;
+    int hw = hit_test(0, s->x, s->y, s->z, s->rx, s->ry, &hx, &hy, &hz);
+    for (int i = 0; i < item_count; i++) {
+        if (items[i] == hw) {
+            g->item_index = i;
+            break;
+        }
+    }
+}
 
-// void on_key(GLFWwindow *window, int key, int scancode, int action, int mods) {
-//     int control = mods & (GLFW_MOD_CONTROL | GLFW_MOD_SUPER);
-//     int exclusive =
-//         glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
-//     if (action == GLFW_RELEASE) {
-//         return;
-//     }
-//     if (key == GLFW_KEY_BACKSPACE) {
-//         if (g->typing) {
-//             int n = strlen(g->typing_buffer);
-//             if (n > 0) {
-//                 g->typing_buffer[n - 1] = '\0';
-//             }
-//         }
-//     }
-//     if (action != GLFW_PRESS) {
-//         return;
-//     }
-//     if (key == GLFW_KEY_ESCAPE) {
-//         if (g->typing) {
-//             g->typing = 0;
-//         }
-//         else if (exclusive) {
-//             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-//         }
-//     }
-//     if (key == GLFW_KEY_ENTER) {
-//         if (g->typing) {
-//             if (mods & GLFW_MOD_SHIFT) {
-//                 int n = strlen(g->typing_buffer);
-//                 if (n < MAX_TEXT_LENGTH - 1) {
-//                     g->typing_buffer[n] = '\r';
-//                     g->typing_buffer[n + 1] = '\0';
-//                 }
-//             }
-//             else {
-//                 g->typing = 0;
-//                 if (g->typing_buffer[0] == CRAFT_KEY_SIGN) {
-//                     Player *player = g->players;
-//                     int x, y, z, face;
-//                     if (hit_test_face(player, &x, &y, &z, &face)) {
-//                         set_sign(x, y, z, face, g->typing_buffer + 1);
-//                     }
-//                 }
-//                 else if (g->typing_buffer[0] == '/') {
-//                     parse_command(g->typing_buffer, 1);
-//                 }
-//                 else {
-//                     client_talk(g->typing_buffer);
-//                 }
-//             }
-//         }
-//         else {
-//             if (control) {
-//                 on_right_click();
-//             }
-//             else {
-//                 on_left_click();
-//             }
-//         }
-//     }
-//     if (control && key == 'V') {
-//         const char *buffer = SDL_GetClipboardText();
-//         if (g->typing) {
-//             g->suppress_char = 1;
-//             strncat(g->typing_buffer, buffer,
-//                 MAX_TEXT_LENGTH - strlen(g->typing_buffer) - 1);
-//         }
-//         else {
-//             parse_command(buffer, 0);
-//         }
-//         SDL_Free(buffer);
-//     }
-//     if (!g->typing) {
-//         if (key == CRAFT_KEY_FLY) {
-//             g->flying = !g->flying;
-//         }
-//         if (key >= '1' && key <= '9') {
-//             g->item_index = key - '1';
-//         }
-//         if (key == '0') {
-//             g->item_index = 9;
-//         }
-//         if (key == CRAFT_KEY_ITEM_NEXT) {
-//             g->item_index = (g->item_index + 1) % item_count;
-//         }
-//         if (key == CRAFT_KEY_ITEM_PREV) {
-//             g->item_index--;
-//             if (g->item_index < 0) {
-//                 g->item_index = item_count - 1;
-//             }
-//         }
-//         if (key == CRAFT_KEY_OBSERVE) {
-//             g->observe1 = (g->observe1 + 1) % g->player_count;
-//         }
-//         if (key == CRAFT_KEY_OBSERVE_INSET) {
-//             g->observe2 = (g->observe2 + 1) % g->player_count;
-//         }
-//     }
-// }
+// https://github.com/rswinkle/Craft/blob/sdl/src/main.c
+int handle_events(double dt) {
+    // Handle window init and force a scale
+    static SDL_bool first_event = 1;
+	static float dy = 0;
+	State* s = &g->players->state;
+	int sz = 0;
+	int sx = 0;
+	float m = 0.0025;
 
-// void on_char(GLFWwindow *window, unsigned int u) {
-//     if (g->suppress_char) {
-//         g->suppress_char = 0;
-//         return;
-//     }
-//     if (g->typing) {
-//         if (u >= 32 && u < 128) {
-//             char c = (char)u;
-//             int n = strlen(g->typing_buffer);
-//             if (n < MAX_TEXT_LENGTH - 1) {
-//                 g->typing_buffer[n] = c;
-//                 g->typing_buffer[n + 1] = '\0';
-//             }
-//         }
-//     }
-//     else {
-//         if (u == CRAFT_KEY_CHAT) {
-//             g->typing = 1;
-//             g->typing_buffer[0] = '\0';
-//         }
-//         if (u == CRAFT_KEY_COMMAND) {
-//             g->typing = 1;
-//             g->typing_buffer[0] = '/';
-//             g->typing_buffer[1] = '\0';
-//         }
-//         if (u == CRAFT_KEY_SIGN) {
-//             g->typing = 1;
-//             g->typing_buffer[0] = CRAFT_KEY_SIGN;
-//             g->typing_buffer[1] = '\0';
-//         }
-//     }
-// }
+	SDL_Event e;
+	int sc, code;
 
-// void on_scroll(GLFWwindow *window, double xdelta, double ydelta) {
-//     static double ypos = 0;
-//     ypos += ydelta;
-//     if (ypos < -SCROLL_THRESHOLD) {
-//         g->item_index = (g->item_index + 1) % item_count;
-//         ypos = 0;
-//     }
-//     if (ypos > SCROLL_THRESHOLD) {
-//         g->item_index--;
-//         if (g->item_index < 0) {
-//             g->item_index = item_count - 1;
-//         }
-//         ypos = 0;
-//     }
-// }
+	// eat all escapes this frame after copy dialog ended with "no"
+	int copy_escape = 0;
 
-// void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
-//     int control = mods & (GLFW_MOD_CONTROL | GLFW_MOD_SUPER);
-//     int exclusive =
-//         glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
-//     if (action != GLFW_PRESS) {
-//         return;
-//     }
-//     if (button == GLFW_MOUSE_BUTTON_LEFT) {
-//         if (exclusive) {
-//             if (control) {
-//                 on_right_click();
-//             }
-//             else {
-//                 on_left_click();
-//             }
-//         }
-//         else {
-//             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-//         }
-//     }
-//     if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-//         if (exclusive) {
-//             if (control) {
-//                 on_light();
-//             }
-//             else {
-//                 on_right_click();
-//             }
-//         }
-//     }
-//     if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
-//         if (exclusive) {
-//             on_middle_click();
-//         }
-//     }
-// }
+	SDL_Keymod mod_state = SDL_GetModState();
+
+	int control = mod_state ;//& (KMOD_LCTRL | KMOD_RCTRL | KMOD_LGUI | KMOD_RGUI);
+    int exclusive = SDL_GetRelativeMouseMode();
+
+	while (SDL_PollEvent(&e)) {
+		/*
+		if (e.type == g->userevent) {
+
+			code = e.user.code;
+			switch (code) {
+			}
+		}
+		*/
+		switch (e.type) {
+		case SDL_EVENT_QUIT:
+			return 1;
+		case SDL_EVENT_KEY_UP:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_ESCAPE:
+				if (g->typing) {
+					g->typing = 0;
+				} else if (exclusive) {
+					SDL_SetRelativeMouseMode(SDL_FALSE);
+				} else {
+					return 1;
+				}
+				break;
+			}
+			break;
+
+		case SDL_EVENT_KEY_DOWN:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_RETURN:
+				if (g->typing) {
+					if (mod_state /*& (KMOD_LSHIFT | KMOD_RSHIFT)*/) {
+						if (g->text_len < MAX_TEXT_LENGTH - 1) {
+							g->typing_buffer[g->text_len] = '\r'; // TODO? \n?
+							g->typing_buffer[g->text_len+1] = '\0';
+						}
+					} else {
+						g->typing = 0;
+						if (g->typing_buffer[0] == CRAFT_KEY_SIGN) {
+							Player *player = g->players;
+							int x, y, z, face;
+							if (hit_test_face(player, &x, &y, &z, &face)) {
+								set_sign(x, y, z, face, g->typing_buffer + 1);
+							}
+						} else if (g->typing_buffer[0] == '/') {
+							parse_command(g->typing_buffer, 1);
+						} else {
+							client_talk(g->typing_buffer);
+						}
+					}
+				} else {
+					if (control) {
+						on_right_click();
+					} else {
+						on_left_click();
+					}
+				}
+				break;
+
+			case SDL_SCANCODE_V:
+				if (control) {
+					char* clip_buffer = SDL_GetClipboardText();
+					if (g->typing) {
+						g->suppress_char = 1;
+						strncat(g->typing_buffer, clip_buffer,
+							MAX_TEXT_LENGTH - g->text_len - 1);
+					} else {
+						parse_command(clip_buffer, 0);
+					}
+				}
+				break;
+
+			case SDL_SCANCODE_0:
+				if (!g->typing)
+					g->item_index = 9;
+				break;
+			case SDL_SCANCODE_1:
+			case SDL_SCANCODE_2:
+			case SDL_SCANCODE_3:
+			case SDL_SCANCODE_4:
+			case SDL_SCANCODE_5:
+			case SDL_SCANCODE_6:
+			case SDL_SCANCODE_7:
+			case SDL_SCANCODE_8:
+			case SDL_SCANCODE_9:
+				if (!g->typing)
+					g->item_index = (sc - SDL_SCANCODE_1);
+				break;
+
+			case KEY_FLY:
+				if (!g->typing)
+					g->flying = !g->flying;
+				break;
+
+			case KEY_ITEM_NEXT:
+				if (!g->typing)
+					g->item_index = (g->item_index + 1) % item_count;
+				break;
+			case KEY_ITEM_PREV:
+				if (!g->typing) {
+					g->item_index--;
+					if (g->item_index < 0)
+						g->item_index = item_count - 1;
+				}
+				break;
+			case KEY_OBSERVE:
+				if (!g->typing)
+					g->observe1 = (g->observe1 + 1) % g->player_count;
+				break;
+
+			case KEY_OBSERVE_INSET:
+				if (!g->typing)
+					g->observe2 = (g->observe2 + 1) % g->player_count;
+				break;
+
+				/*
+			case KEY_ORTHO:
+				break;
+			case KEY_ZOOM:
+				break;
+			case KEY_FORWARD:
+				break;
+			case KEY_BACKWARD:
+				break;
+			case KEY_LEFT:
+				break;
+			case KEY_RIGHT:
+				break;
+			case KEY_UP:
+				break;
+			case KEY_DOWN:
+				break;
+				*/
+
+			case KEY_CHAT:
+				g->typing = 1;
+				g->typing_buffer[0] = '\0';
+				g->text_len = 0;
+				SDL_StartTextInput();
+				break;
+
+			case KEY_COMMAND:
+				g->typing = 1;
+				g->typing_buffer[0] = '\0';
+				SDL_StartTextInput();
+				break;
+
+			case KEY_SIGN:
+				g->typing = 1;
+				g->typing_buffer[0] = '\0';
+				SDL_StartTextInput();
+				break;
+
+			}
+
+			break;
+
+		case SDL_EVENT_TEXT_INPUT:
+			// could probably just do text[text_len++] = e.text.text[0]
+			// since I only handle ascii
+			if (g->typing && g->text_len < MAX_TEXT_LENGTH -1) {
+				strcat(g->typing_buffer, e.text.text);
+				g->text_len += strlen(e.text.text);
+				//SDL_Log("text is \"%s\" \"%s\" %d %d\n", g->typing_buffer, composition, cursor, selection_len);
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+			}
+			break;
+
+		case SDL_EVENT_MOUSE_MOTION:
+			if (exclusive) {
+				s->rx += e.motion.xrel * m;
+				if (INVERT_MOUSE) {
+					s->ry += e.motion.yrel * m;
+				} else {
+					s->ry -= e.motion.yrel * m;
+				}
+				if (s->rx < 0) {
+					s->rx += RADIANS(360);
+				}
+				if (s->rx >= RADIANS(360)){
+					s->rx -= RADIANS(360);
+				}
+				s->ry = MAX(s->ry, -RADIANS(90));
+				s->ry = MIN(s->ry, RADIANS(90));
+			}
+			break;
+
+		case SDL_EVENT_MOUSE_BUTTON_DOWN:
+			if (e.button.button == SDL_BUTTON_LEFT) {
+				if (exclusive) {
+					if (control) {
+						on_right_click();
+					} else {
+						on_left_click();
+					}
+				} else {
+					SDL_SetRelativeMouseMode(SDL_TRUE);
+				}
+			} else if (e.button.button == SDL_BUTTON_RIGHT) {
+				if (exclusive) {
+					if (control) {
+						on_light();
+					} else {
+						on_right_click();
+					}
+				}
+			} else if (e.button.button == SDL_BUTTON_MIDDLE) {
+				if (exclusive) {
+					on_middle_click();
+				}
+			}
+
+			break;
+
+		case SDL_EVENT_MOUSE_WHEEL:
+			// TODO might have to change this to force 1 step
+			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+				g->item_index += e.wheel.y;
+			} else {
+				g->item_index -= e.wheel.y;
+			}
+			if (g->item_index < 0)
+				g->item_index = item_count -1;
+			else
+				g->item_index %= item_count;
+			break;
+        case SDL_EVENT_WINDOW_RESIZED: {
+            g->scale = get_scale_factor();
+            SDL_GetWindowSizeInPixels(g->window, &g->width, &g->height);
+        }
+        case SDL_EVENT_WINDOW_SHOWN: {
+            // trigger scale calculation when app loads
+            if (first_event) {
+                g->scale = get_scale_factor();
+                SDL_GetWindowSizeInPixels(g->window, &g->width, &g->height);
+                first_event = 0;
+            }
+        }
+		} // switch
+	}
+
+	const Uint8 *state = SDL_GetKeyboardState(NULL);
+
+	if (!g->typing) {
+		float m = dt * 1.0;  // what is this for?
+		g->ortho = state[KEY_ORTHO] ? 64 : 0;
+		g->fov = state[KEY_ZOOM] ? 15 : 65;
+		if (state[KEY_FORWARD]) sz--;
+		if (state[KEY_BACKWARD]) sz++;
+		if (state[KEY_LEFT]) sx--;
+		if (state[KEY_RIGHT]) sx++;
+		if (state[SDL_SCANCODE_LEFT]) s->rx -= m;
+		if (state[SDL_SCANCODE_RIGHT]) s->rx += m;
+		if (state[SDL_SCANCODE_UP]) s->ry += m;
+		if (state[SDL_SCANCODE_DOWN]) s->ry -= m;
+	}
+	float vx, vy, vz;
+	get_motion_vector(g->flying, sz, sx, s->rx, s->ry, &vx, &vy, &vz);
+	if (!g->typing) {
+		if (state[KEY_JUMP]) {
+			if (g->flying) {
+				vy = 1;
+			}
+			else if (dy == 0) {
+				dy = 8;
+			}
+		}
+	}
+	float speed = g->flying ? 20 : 5;
+	int estimate = SDL_roundf(SDL_sqrtf(
+		SDL_powf(vx * speed, 2) +
+		SDL_powf(vy * speed + ABS(dy) * 2, 2) +
+		SDL_powf(vz * speed, 2)) * dt * 8);
+	int step = MAX(8, estimate);
+	float ut = dt / step;
+	vx = vx * ut * speed;
+	vy = vy * ut * speed;
+	vz = vz * ut * speed;
+	for (int i = 0; i < step; i++) {
+		if (g->flying) {
+			dy = 0;
+		}
+		else {
+			dy -= ut * 25;
+			dy = MAX(dy, -250);
+		}
+		s->x += vx;
+		s->y += vy + dy * ut;
+		s->z += vz;
+		if (collide(2, &s->x, &s->y, &s->z)) {
+			dy = 0;
+		}
+	}
+	if (s->y < 0) {
+		s->y = highest_block(s->x, s->z) + 2;
+	}
+
+	return 0;
+
+} // handle_events
 
 void create_window_and_context() {
+    g->start_ticks = (int) SDL_GetTicks(); 
     Uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
     int window_width = WINDOW_WIDTH;
     int window_height = WINDOW_HEIGHT;
@@ -2456,9 +2601,8 @@ void create_window_and_context() {
 
     // GL 3.0 + GLSL 130
     const char* glsl_version = "#version 130";
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
 #if defined(DEBUGGING)
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_DEBUG_FLAG);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #endif // DEBUGGING
@@ -2474,101 +2618,7 @@ void create_window_and_context() {
     SDL_GL_MakeCurrent(g->window, g->context);
 
     SDL_GL_SetSwapInterval(1);
-}
-
-void handle_mouse_input() {
-    // int exclusive = glfwGetInputMode(g->window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
-    int exclusive = (int) SDL_CursorVisible();
-    static double px = 0;
-    static double py = 0;
-    State *s = &g->players->state;
-    if (exclusive && (px || py)) {
-        double mx, my;
-        // glfwGetCursorPos(g->window, &mx, &my);
-        // SDL_Cursor cursor2 = SDL_GetCursor();
-        float m = 0.0025;
-        s->rx += (mx - px) * m;
-        if (INVERT_MOUSE) {
-            s->ry += (my - py) * m;
-        }
-        else {
-            s->ry -= (my - py) * m;
-        }
-        if (s->rx < 0) {
-            s->rx += RADIANS(360);
-        }
-        if (s->rx >= RADIANS(360)){
-            s->rx -= RADIANS(360);
-        }
-        s->ry = MAX(s->ry, -RADIANS(90));
-        s->ry = MIN(s->ry, RADIANS(90));
-        px = mx;
-        py = my;
-    }
-    else {
-        // glfwGetCursorPos(g->window, &px, &py);
-    }
-}
-
-void handle_movement(double dt) {
-    static float dy = 0;
-    State *s = &g->players->state;
-    int sz = 0;
-    int sx = 0;
-    if (!g->typing) {
-        float m = dt * 1.0;
-        // g->ortho = glfwGetKey(g->window, CRAFT_KEY_ORTHO) ? 64 : 0;
-        // g->fov = glfwGetKey(g->window, CRAFT_KEY_ZOOM) ? 15 : 65;
-        // if (glfwGetKey(g->window, CRAFT_KEY_FORWARD)) sz--;
-        // if (glfwGetKey(g->window, CRAFT_KEY_BACKWARD)) sz++;
-        // if (glfwGetKey(g->window, CRAFT_KEY_LEFT)) sx--;
-        // if (glfwGetKey(g->window, CRAFT_KEY_RIGHT)) sx++;
-        // if (glfwGetKey(g->window, GLFW_KEY_LEFT)) s->rx -= m;
-        // if (glfwGetKey(g->window, GLFW_KEY_RIGHT)) s->rx += m;
-        // if (glfwGetKey(g->window, GLFW_KEY_UP)) s->ry += m;
-        // if (glfwGetKey(g->window, GLFW_KEY_DOWN)) s->ry -= m;
-    }
-    float vx, vy, vz;
-    get_motion_vector(g->flying, sz, sx, s->rx, s->ry, &vx, &vy, &vz);
-    if (!g->typing) {
-        // if (glfwGetKey(g->window, CRAFT_KEY_JUMP)) {
-        //     if (g->flying) {
-        //         vy = 1;
-        //     }
-        //     else if (dy == 0) {
-        //         dy = 8;
-        //     }
-        // }
-    }
-    float speed = g->flying ? 20 : 5;
-    int estimate = SDL_roundf(SDL_sqrt(
-        SDL_powf(vx * speed, 2) +
-        SDL_powf(vy * speed + ABS(dy) * 2, 2) +
-        SDL_powf(vz * speed, 2)) * dt * 8);
-    int step = MAX(8, estimate);
-    float ut = dt / step;
-    vx = vx * ut * speed;
-    vy = vy * ut * speed;
-    vz = vz * ut * speed;
-    for (int i = 0; i < step; i++) {
-        if (g->flying) {
-            dy = 0;
-        }
-        else {
-            dy -= ut * 25;
-            dy = MAX(dy, -250);
-        }
-        s->x += vx;
-        s->y += vy + dy * ut;
-        s->z += vz;
-        if (collide(2, &s->x, &s->y, &s->z)) {
-            dy = 0;
-        }
-    }
-    if (s->y < 0) {
-        s->y = highest_block(s->x, s->z) + 2;
-    }
-}
+} // create_window_and_context
 
 void parse_buffer(char *buffer) {
     Player *me = g->players;
@@ -2636,6 +2686,7 @@ void parse_buffer(char *buffer) {
         int day_length;
         if (sscanf(line, "E,%lf,%d", &elapsed, &day_length) == 2) {
             // glfwSetTime(fmod(elapsed, day_length));
+            g->start_time = SDL_fmod(elapsed, day_length) / 1000.0;
             g->day_length = day_length;
             g->time_changed = 1;
         }
@@ -2681,13 +2732,14 @@ void reset_model() {
     memset(g->messages, 0, sizeof(char) * MAX_MESSAGES * MAX_TEXT_LENGTH);
     g->message_index = 0;
     g->day_length = DAY_LENGTH;
-    // glfwSetTime(g->day_length / 3.0);
+    g->start_time = (g->day_length / 3)*1000;
+    // maybe set start_ticks here?
     g->time_changed = 1;
 }
 
 int main(int argc, char **argv) {
     // INITIALIZATION //
-    // curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl_global_init(CURL_GLOBAL_DEFAULT);
     srand(time(NULL));
     rand();
 
@@ -2705,12 +2757,7 @@ int main(int argc, char **argv) {
     }
 
     SDL_ShowWindow(g->window);
-
-    // glfwSetInputMode(g->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    // glfwSetKeyCallback(g->window, on_key);
-    // glfwSetCharCallback(g->window, on_char);
-    // glfwSetMouseButtonCallback(g->window, on_mouse_button);
-    // glfwSetScrollCallback(g->window, on_scroll);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 
     if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, 
@@ -2836,265 +2883,243 @@ int main(int argc, char **argv) {
         thrd_create(&worker->thrd, worker_run, worker);
     }
 
-    // DATABASE INITIALIZATION //
-    if (g->mode == MODE_OFFLINE || USE_CACHE) {
-        db_enable();
-        if (db_init(g->db_path)) {
-            return -1;
-        }
-        if (g->mode == MODE_ONLINE) {
-            // TODO: support proper caching of signs (handle deletions)
-            db_delete_all_signs();
-        }
-    }
-
-    // CLIENT INITIALIZATION //
-    if (g->mode == MODE_ONLINE) {
-        client_enable();
-        client_connect(g->server_addr, g->server_port);
-        client_start();
-        client_version(1);
-        login();
-    }
-
-    // LOCAL VARIABLES //
-    reset_model();
-    FPS fps = {0, 0, 0};
-    double last_commit = SDL_GetTicks() / 1000.0;
-    double last_update = SDL_GetTicks() / 1000.0;
-    
-    GLuint sky_buffer = gen_sky_buffer();
-    
-    Player *me = g->players;
-    State *s = &g->players->state;
-    me->id = 0;
-    me->name[0] = '\0';
-    me->buffer = 0;
-    g->player_count = 1;
-
-    // LOAD STATE FROM DATABASE //
-    int loaded = db_load_state(&s->x, &s->y, &s->z, &s->rx, &s->ry);
-    force_chunks(me);
-    if (!loaded) {
-        s->y = highest_block(s->x, s->z) + 2;
-    }
-
     // RENDER LOOP //
     int running = 1;
     while (running) {
-        double previous = SDL_GetTicks() / 1000.0;
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
+
+        // DATABASE INITIALIZATION //
+        if (g->mode == MODE_OFFLINE || USE_CACHE) {
+            db_enable();
+            if (db_init(g->db_path)) {
+                return -1;
+            }
+            if (g->mode == MODE_ONLINE) {
+                // TODO: support proper caching of signs (handle deletions)
+                db_delete_all_signs();
+            }
+        }
+
+        // CLIENT INITIALIZATION //
+        if (g->mode == MODE_ONLINE) {
+            client_enable();
+            client_connect(g->server_addr, g->server_port);
+            client_start();
+            client_version(1);
+            login();
+        }
+
+        // LOCAL VARIABLES //
+        reset_model();
+        FPS fps = {0, 0, 0};
+        double last_commit = SDL_GetTicks();
+        double last_update = SDL_GetTicks();
+        
+        GLuint sky_buffer = gen_sky_buffer();
+        
+        Player *me = g->players;
+        State *s = &g->players->state;
+        me->id = 0;
+        me->name[0] = '\0';
+        me->buffer = 0;
+        g->player_count = 1;
+
+        // LOAD STATE FROM DATABASE //
+        int loaded = db_load_state(&s->x, &s->y, &s->z, &s->rx, &s->ry);
+        force_chunks(me);
+        if (!loaded) {
+            s->y = highest_block(s->x, s->z) + 2;
+        }
+
+        // BEGIN EVENT LOOP //
+        int previous = SDL_GetTicks();
+        while (1) {
+            glViewport(0, 0, g->width, g->height);
+            // FRAME RATE //
+            if (g->time_changed) {
+                g->time_changed = 0;
+                last_commit = SDL_GetTicks();
+                last_update = SDL_GetTicks();
+                memset(&fps, 0, sizeof(fps));
+            }
+            update_fps(&fps);
+            double now = SDL_GetTicks();
+            double dt = (now - previous) / 1000.0;
+            dt = MIN(dt, 0.2);
+            dt = MAX(dt, 0.0);
+            previous = now;
+#if defined(DEBUGGING)
+            SDL_Log("fps: %d\n", fps.fps);
+#endif
+
+            if (handle_events(dt)) {
                 running = 0;
                 break;
             }
-            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(g->window)) {
-                running = 0;
-                break;
-            }
-
-            if (event.type == SDL_EVENT_KEY_UP) {
-                continue;
-            }
-
-            if (event.type == SDL_EVENT_KEY_DOWN) {
-                switch (event.key.keysym.sym) {
-                case SDLK_ESCAPE: SDL_ShowCursor(); break;
-                case SDLK_RETURN: /* handle right/left clicks */ break;
-                }
-            }
-       
             if (g->mode_changed) {
                 g->mode_changed = 0;
                 break;
             }
-        } // event loop
 
-        // WINDOW SIZE AND SCALE //
-        g->scale = get_scale_factor();
-        SDL_GetWindowSizeInPixels(g->window, &g->width, &g->height);
-        glViewport(0, 0, g->width, g->height);
-
-        // FRAME RATE //
-        if (g->time_changed) {
-            g->time_changed = 0;
-            last_commit = SDL_GetTicks() / 1000.0;
-            last_update = SDL_GetTicks() / 1000.0;
-            memset(&fps, 0, sizeof(fps));
-        }
-        update_fps(&fps);
-        double now = SDL_GetTicks() / 1000.0;
-        double dt = now - previous;
-        dt = MIN(dt, 0.2);
-        dt = MAX(dt, 0.0);
-        previous = now;
-
-        // HANDLE MOUSE INPUT //
-        handle_mouse_input();
-
-        // HANDLE MOVEMENT //
-        handle_movement(dt);
-
-        // HANDLE DATA FROM SERVER //
-        char *buffer = client_recv();
-        if (buffer) {
-            parse_buffer(buffer);
-            free(buffer);
-        }
-
-        // FLUSH DATABASE //
-        if (now - last_commit > COMMIT_INTERVAL) {
-            last_commit = now;
-            db_commit();
-        }
-
-        // SEND POSITION TO SERVER //
-        if (now - last_update > 0.1) {
-            last_update = now;
-            client_position(s->x, s->y, s->z, s->rx, s->ry);
-        }
-
-        // PREPARE TO RENDER //
-        g->observe1 = g->observe1 % g->player_count;
-        g->observe2 = g->observe2 % g->player_count;
-        
-        delete_chunks();
-        del_buffer(me->buffer);
-        
-        me->buffer = gen_player_buffer(s->x, s->y, s->z, s->rx, s->ry);
-        for (int i = 1; i < g->player_count; i++) {
-            interpolate_player(g->players + i);
-        }
-        Player *player = g->players + g->observe1;
-        
-        // RENDER 3-D SCENE //
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        
-        render_sky(&sky_attrib, player, sky_buffer);
-        glClear(GL_DEPTH_BUFFER_BIT);
-        int face_count = render_chunks(&block_attrib, player);
-        render_signs(&text_attrib, player);
-        render_sign(&text_attrib, player);
-        render_players(&block_attrib, player);
-        if (SHOW_WIREFRAME) {
-            render_wireframe(&line_attrib, player);
-        }
-        
-        // RENDER HUD //
-        glClear(GL_DEPTH_BUFFER_BIT);
-        if (SHOW_CROSSHAIRS) {
-            render_crosshairs(&line_attrib);
-        }
-        if (SHOW_ITEM) {
-            render_item(&block_attrib);
-        }
-
-        // // RENDER TEXT //
-        char text_buffer[1024];
-        float ts = 12 * g->scale;
-        float tx = ts / 2;
-        float ty = g->height - ts;
-        if (SHOW_INFO_TEXT) {
-            int hour = time_of_day() * 24;
-            char am_pm = hour < 12 ? 'a' : 'p';
-            hour = hour % 12;
-            hour = hour ? hour : 12;
-            snprintf(
-                text_buffer, 1024,
-                "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d, %d] %d%cm %dfps",
-                chunked(s->x), chunked(s->z), s->x, s->y, s->z,
-                g->player_count, g->chunk_count,
-                face_count * 2, hour, am_pm, fps.fps);
-            render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
-            ty -= ts * 2;
-        }
-        if (SHOW_CHAT_TEXT) {
-            for (int i = 0; i < MAX_MESSAGES; i++) {
-                int index = (g->message_index + i) % MAX_MESSAGES;
-                if (strlen(g->messages[index])) {
-                    render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts,
-                        g->messages[index]);
-                    ty -= ts * 2;
-                }
+            // HANDLE DATA FROM SERVER //
+            char *buffer = client_recv();
+            if (buffer) {
+                parse_buffer(buffer);
+                free(buffer);
             }
-        }
-        if (g->typing) {
-            snprintf(text_buffer, 1024, "> %s", g->typing_buffer);
-            render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
-            ty -= ts * 2;
-        }
-        if (SHOW_PLAYER_NAMES) {
-            if (player != me) {
-                
-                render_text(&text_attrib, ALIGN_CENTER,
-                    g->width / 2, ts, ts, player->name);
-                
+
+            // FLUSH DATABASE //
+            if (now - last_commit > COMMIT_INTERVAL) {
+                last_commit = now;
+                db_commit();
             }
-            Player *other = player_crosshair(player);
-            if (other) {
-                render_text(&text_attrib, ALIGN_CENTER,
-                    g->width / 2, g->height / 2 - ts - 24, ts,
-                    other->name);
+
+            // SEND POSITION TO SERVER //
+            if (now - last_update > 0.1) {
+                last_update = now;
+                client_position(s->x, s->y, s->z, s->rx, s->ry);
             }
-        }
 
-        // RENDER PICTURE IN PICTURE //
-        if (g->observe2) {
-            player = g->players + g->observe2;
-
-            int pw = 256 * g->scale;
-            int ph = 256 * g->scale;
-            int offset = 32 * g->scale;
-            int pad = 3 * g->scale;
-            int sw = pw + pad * 2;
-            int sh = ph + pad * 2;
-
-            glEnable(GL_SCISSOR_TEST);
-            glScissor(g->width - sw - offset + pad, offset - pad, sw, sh);
+            // PREPARE TO RENDER //
+            g->observe1 = g->observe1 % g->player_count;
+            g->observe2 = g->observe2 % g->player_count;
+        
+            delete_chunks();
+            del_buffer(me->buffer);
+            
+            me->buffer = gen_player_buffer(s->x, s->y, s->z, s->rx, s->ry);
+            for (int i = 1; i < g->player_count; i++) {
+                interpolate_player(g->players + i);
+            }
+            Player *player = g->players + g->observe1;
+            
+            // RENDER 3-D SCENE //
             glClear(GL_COLOR_BUFFER_BIT);
-            glDisable(GL_SCISSOR_TEST);
             glClear(GL_DEPTH_BUFFER_BIT);
-            glViewport(g->width - pw - offset, offset, pw, ph);
-
-            g->width = pw;
-            g->height = ph;
-            g->ortho = 0;
-            g->fov = 65;
-
             
             render_sky(&sky_attrib, player, sky_buffer);
-            
             glClear(GL_DEPTH_BUFFER_BIT);
-            render_chunks(&block_attrib, player);
-            
+            int face_count = render_chunks(&block_attrib, player);
             render_signs(&text_attrib, player);
-            
+            render_sign(&text_attrib, player);
             render_players(&block_attrib, player);
-            
-            glClear(GL_DEPTH_BUFFER_BIT);
-            
-            if (SHOW_PLAYER_NAMES) {
-                
-                render_text(&text_attrib, ALIGN_CENTER,
-                    pw / 2, ts, ts, player->name);
-                
+            if (SHOW_WIREFRAME) {
+                render_wireframe(&line_attrib, player);
             }
-        }
-        
-        SDL_GL_SwapWindow(g->window);
-    } // RENDER LOOP
+            
+            // RENDER HUD //
+            glClear(GL_DEPTH_BUFFER_BIT);
+            if (SHOW_CROSSHAIRS) {
+                render_crosshairs(&line_attrib);
+            }
+            if (SHOW_ITEM) {
+                render_item(&block_attrib);
+            }
 
-    // SHUTDOWN //
-    db_save_state(s->x, s->y, s->z, s->rx, s->ry);
-    db_close();
-    db_disable();
-    client_stop();
-    client_disable();
-    del_buffer(sky_buffer);
-    delete_all_chunks();
-    delete_all_players();
+            // RENDER TEXT //
+            char text_buffer[1024];
+            float ts = 12 * g->scale;
+            float tx = ts / 2;
+            float ty = g->height - ts;
+            if (SHOW_INFO_TEXT) {
+                int hour = time_of_day() * 24;
+                char am_pm = hour < 12 ? 'a' : 'p';
+                hour = hour % 12;
+                hour = hour ? hour : 12;
+                snprintf(
+                    text_buffer, 1024,
+                    "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d, %d] %d%cm %dfps",
+                    chunked(s->x), chunked(s->z), s->x, s->y, s->z,
+                    g->player_count, g->chunk_count,
+                    face_count * 2, hour, am_pm, fps.fps);
+                render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
+                ty -= ts * 2;
+            }
+            if (SHOW_CHAT_TEXT) {
+                for (int i = 0; i < MAX_MESSAGES; i++) {
+                    int index = (g->message_index + i) % MAX_MESSAGES;
+                    if (strlen(g->messages[index])) {
+                        render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts,
+                            g->messages[index]);
+                        ty -= ts * 2;
+                    }
+                }
+            }
+            if (g->typing) {
+                snprintf(text_buffer, 1024, "> %s", g->typing_buffer);
+                render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
+                ty -= ts * 2;
+            }
+            if (SHOW_PLAYER_NAMES) {
+                if (player != me) {
+                    
+                    render_text(&text_attrib, ALIGN_CENTER,
+                        g->width / 2, ts, ts, player->name);
+                    
+                }
+                Player *other = player_crosshair(player);
+                if (other) {
+                    render_text(&text_attrib, ALIGN_CENTER,
+                        g->width / 2, g->height / 2 - ts - 24, ts,
+                        other->name);
+                }
+            }
+
+            // RENDER PICTURE IN PICTURE //
+            if (g->observe2) {
+                player = g->players + g->observe2;
+
+                int pw = 256 * g->scale;
+                int ph = 256 * g->scale;
+                int offset = 32 * g->scale;
+                int pad = 3 * g->scale;
+                int sw = pw + pad * 2;
+                int sh = ph + pad * 2;
+
+                glEnable(GL_SCISSOR_TEST);
+                glScissor(g->width - sw - offset + pad, offset - pad, sw, sh);
+                glClear(GL_COLOR_BUFFER_BIT);
+                glDisable(GL_SCISSOR_TEST);
+                glClear(GL_DEPTH_BUFFER_BIT);
+                glViewport(g->width - pw - offset, offset, pw, ph);
+
+                g->width = pw;
+                g->height = ph;
+                g->ortho = 0;
+                g->fov = 65;
+
+                
+                render_sky(&sky_attrib, player, sky_buffer);
+                
+                glClear(GL_DEPTH_BUFFER_BIT);
+                render_chunks(&block_attrib, player);
+                
+                render_signs(&text_attrib, player);
+                
+                render_players(&block_attrib, player);
+                
+                glClear(GL_DEPTH_BUFFER_BIT);
+                
+                if (SHOW_PLAYER_NAMES) {
+                    
+                    render_text(&text_attrib, ALIGN_CENTER,
+                        pw / 2, ts, ts, player->name);
+                    
+                }
+            }
+        
+            SDL_GL_SwapWindow(g->window);
+        } // MAIN LOOP
+
+        // SHUTDOWN //
+        db_save_state(s->x, s->y, s->z, s->rx, s->ry);
+        db_close();
+        db_disable();
+        client_stop();
+        client_disable();
+        del_buffer(sky_buffer);
+        delete_all_chunks();
+        delete_all_players();
+    } // RENDER LOOP
 
     SDL_Log("Cleaning up OpenGL objects. . .");
 
@@ -3102,6 +3127,7 @@ int main(int argc, char **argv) {
     SDL_GL_DeleteContext(g->context);
     SDL_DestroyWindow(g->window);
     SDL_Quit();
-    // curl_global_cleanup();
+    curl_global_cleanup();
+
     return 0;
-}
+} // main
