@@ -11,7 +11,7 @@
 
 #define SDL_FUNCTION_POINTER_IS_VOID_POINTER
 
-#include <curl/curl.h>
+// #include <curl/curl.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -2739,7 +2739,7 @@ void reset_model() {
 
 int main(int argc, char **argv) {
     // INITIALIZATION //
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    // curl_global_init(CURL_GLOBAL_DEFAULT);
     srand(time(NULL));
     rand();
 
@@ -3142,7 +3142,7 @@ int main(int argc, char **argv) {
     SDL_DestroyWindow(g->window);
     SDL_Quit();
     
-    curl_global_cleanup();
+    // curl_global_cleanup();
 
     return 0;
 } // main

@@ -1,10 +1,41 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(craft)
+project(craft-sdl3)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(DEAR_IMGUI_SRCS
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui_demo.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui_draw.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui_tables.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui_widgets.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/backends/imgui_impl_sdl3.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/backends/imgui_impl_opengl3.cpp)
+
+set(DEAR_IMGUI_HEADERS
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imconfig.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imgui_internal.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imstb_rectpack.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imstb_textedit.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/imstb_truetype.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/backends/imgui_impl_sdl3.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/backends/imgui_impl_opengl3.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/dearimgui/backends/imgui_impl_opengl3_loader.h)
+
+set(DEP_C_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/glad/src/glad_3_0.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/lodepng/lodepng.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/noise/noise.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/sqlite/sqlite3.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/tinycthread/tinycthread.c)
+
+file(GLOB CRAFT_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
+
+option(BUILD_FOR_ANDROID "Building for Android using SDL3" OFF)
 
 string(COMPARE EQUAL "${CMAKE_BUILD_TYPE}" "RelWithDebInfo" ENABLE_DEBUGGING)
 string(COMPARE EQUAL "${CMAKE_BUILD_TYPE}" "Debug" ENABLE_DEBUGGING2)
@@ -14,81 +45,114 @@ if(ENABLE_DEBUGGING OR ENABLE_DEBUGGING2)
     add_compile_definitions("DEBUGGING")
 endif()
 
-file(GLOB SOURCE_FILES src/*.c)
+# Quick and dirty Android build using SDL3 android-build script
+if(BUILD_FOR_ANDROID)
+    message(STATUS "Building SDL3 app for Android...")
 
-add_executable(
-    craft
-    ${SOURCE_FILES}
-    deps/glad/src/glad_3_0.c
-    deps/lodepng/lodepng.c
-    deps/noise/noise.c
-    deps/sqlite/sqlite3.c
-    deps/tinycthread/tinycthread.c
-    deps/dearimgui/imgui.cpp
-    deps/dearimgui/imgui_demo.cpp
-    deps/dearimgui/imgui_draw.cpp
-    deps/dearimgui/imgui_tables.cpp
-    deps/dearimgui/imgui_widgets.cpp
-    deps/dearimgui/backends/imgui_impl_opengl3.cpp
-    deps/dearimgui/backends/imgui_impl_sdl3.cpp)
+    if(NOT DEFINED ENV{ANDROID_HOME})
+        message(FATAL_ERROR "Set ANDROID_HOME to path of Android Sdk.")
+    endif()
 
-include_directories(deps/glad/include)
-include_directories(deps/lodepng)
-include_directories(deps/noise)
-include_directories(deps/sqlite)
-include_directories(deps/tinycthread)
-include_directories(deps/dearimgui)
+    if(NOT DEFINED ENV{ANDROID_NDK_HOME})
+        message(FATAL_ERROR "Set ANDROID_NDK_HOME to path of Android Ndk.")
+    endif()
 
-find_package(OpenGL REQUIRED)
+    set(ANDROID_JNI_FILES
+        ${DEP_C_FILES}
+        ${DEAR_IMGUI_SRCS}
+        ${DEAR_IMGUI_HEADERS}
+        ${CRAFT_SOURCE_FILES})
+    set(JAVA_PKG_NAME "com.voxwerks.craft")
+    set(SDL_DIR_NAME SDL-main)
+    set(ANDROID_BUILD_SCRIPT "${CMAKE_BINARY_DIR}/${SDL_DIR_NAME}/build-scripts/androidbuild.sh")
 
-# Find/Configure SDL3
-find_package(SDL3 QUIET)
-if(SDL3_FOUND)
-    message(STATUS "Using SDL3 via find_package")
-endif()
+    file(DOWNLOAD https://github.com/libsdl-org/SDL/archive/main.zip SHOW_PROGRESS ${CMAKE_BINARY_DIR}/${SDL_DIR_NAME}.zip STATUS DOWNLOAD_STATUS)
+    file(ARCHIVE_EXTRACT INPUT ${SDL_DIR_NAME}.zip)
+    # Separate the returned status code, and error message.
+    list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
+    list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
+    # Check if download was successful.
+    if(${STATUS_CODE} EQUAL 0)
+        message(STATUS "Download completed successfully!")
+    else()
+        # Exit CMake if the download failed, printing the error message.
+        message(FATAL_ERROR "Error occurred during download: ${ERROR_MESSAGE}")
+    endif()
 
-# Check current project for SDL3
-if(NOT SDL3_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/SDL/CMakeLists.txt")
-    add_subdirectory(SDL)
-    message(STATUS "Using SDL3 via add_subdirectory")
-    set(SDL3_FOUND TRUE)
-endif()
+    if(NOT EXISTS ${ANDROID_BUILD_SCRIPT})
+        message(FATAL_ERROR ": ${ANDROID_BUILD_SCRIPT} is not valid.")
+    endif()
 
-# If all else fails, download SDL3
-if(NOT SDL3_FOUND)
-    include(FetchContent)
-    set(SDL_SHARED TRUE CACHE BOOL "Build a SDL shared library (if available)")
-    set(SDL_STATIC TRUE CACHE BOOL "Build a SDL static library (if available)")
-    FetchContent_Declare(
-        SDL
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG main  # Replace this with a particular git tag or git hash
-        GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE
-    )
-    message(STATUS "Using SDL3 via FetchContent")
-    FetchContent_MakeAvailable(SDL)
-    set_property(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/sdl-src" PROPERTY EXCLUDE_FROM_ALL TRUE)
-endif()
+    set(ANDROID_APP_PREFIX ${CMAKE_BINARY_DIR}/${SDL_DIR_NAME}/build/${JAVA_PKG_NAME})
+    execute_process(COMMAND bash ${ANDROID_BUILD_SCRIPT} ${JAVA_PKG_NAME} ${ANDROID_JNI_FILES} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    if(EXISTS ${ANDROID_APP_PREFIX}/app)
+        execute_process(COMMAND sed -i -e "s|-lGLESv2|-lGLESv3|" ${ANDROID_APP_PREFIX}/app/jni/src/Android.mk WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+        execute_process(COMMAND sed -i -e "s|Game|${PROJECT_NAME}|g" ${ANDROID_APP_PREFIX}/app/src/main/res/values/strings.xml WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+        execute_process(COMMAND sed -i -e "s|\"SDLActivity\"|\"CraftActivity\"|g" ${ANDROID_APP_PREFIX}/app/src/main/AndroidManifest.xml WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    endif()
+else()
+    message(STATUS "Building SDL3 app for Desktop...")
 
-if(MINGW)
-    set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH}
-        "C:/Program Files/CURL/lib" "C:/Program Files (x86)/CURL/lib")
-    set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH}
-        "C:/Program Files/CURL/include" "C:/Program Files (x86)/CURL/include")
-endif()
+    add_executable(craft-sdl3 ${DEP_C_FILES} ${DEAR_IMGUI_SRCS} ${CRAFT_SOURCE_FILES})
 
-find_package(CURL REQUIRED)
-include_directories(${CURL_INCLUDE_DIR})
+    include_directories(deps/glad/include)
+    include_directories(deps/lodepng)
+    include_directories(deps/noise)
+    include_directories(deps/sqlite)
+    include_directories(deps/tinycthread)
+    include_directories(deps/dearimgui)
 
-if(APPLE)
-    target_link_libraries(craft OpenGL::GL SDL3::SDL3 CURL::libcurl)
-endif()
+    find_package(OpenGL REQUIRED)
 
-if(UNIX)
-    target_link_libraries(craft dl OpenGL::GL SDL3::SDL3 CURL::libcurl)
-endif()
+    # Find/Configure SDL3
+    find_package(SDL3 QUIET)
+    if(SDL3_FOUND)
+        message(STATUS "Using SDL3 via find_package")
+    endif()
 
-if(MINGW)
-    target_link_libraries(craft ws2_32.lib OpenGL::GL SDL3::SDL3 CURL::libcurl)
+    # Check current project for SDL3
+    if(NOT SDL3_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/SDL/CMakeLists.txt")
+        add_subdirectory(SDL)
+        message(STATUS "Using SDL3 via add_subdirectory")
+        set(SDL3_FOUND TRUE)
+    endif()
+
+    # If all else fails, download SDL3
+    if(NOT SDL3_FOUND)
+        include(FetchContent)
+        set(SDL_SHARED TRUE CACHE BOOL "Build a SDL shared library (if available)")
+        set(SDL_STATIC TRUE CACHE BOOL "Build a SDL static library (if available)")
+        FetchContent_Declare(
+            SDL
+            GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+            GIT_TAG main  # Replace this with a particular git tag or git hash
+            GIT_SHALLOW TRUE
+            GIT_PROGRESS TRUE
+        )
+        message(STATUS "Using SDL3 via FetchContent")
+        FetchContent_MakeAvailable(SDL)
+        set_property(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/sdl-src" PROPERTY EXCLUDE_FROM_ALL TRUE)
+    endif()
+
+    if(MINGW)
+        set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH}
+            "C:/Program Files/CURL/lib" "C:/Program Files (x86)/CURL/lib")
+        set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH}
+            "C:/Program Files/CURL/include" "C:/Program Files (x86)/CURL/include")
+    endif()
+
+    find_package(CURL REQUIRED)
+    include_directories(${CURL_INCLUDE_DIR})
+
+    if(APPLE)
+        target_link_libraries(craft-sdl3 OpenGL::GL SDL3::SDL3 CURL::libcurl)
+    endif()
+
+    if(UNIX)
+        target_link_libraries(craft-sdl3 dl OpenGL::GL SDL3::SDL3 CURL::libcurl)
+    endif()
+
+    if(MINGW)
+        target_link_libraries(craft-sdl3 ws2_32.lib OpenGL::GL SDL3::SDL3 CURL::libcurl)
+    endif()
 endif()
