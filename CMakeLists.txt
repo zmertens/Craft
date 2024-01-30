@@ -110,13 +110,6 @@ else()
         message(STATUS "Using SDL3 via find_package")
     endif()
 
-    # Check current project for SDL3
-    if(NOT SDL3_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/SDL/CMakeLists.txt")
-        add_subdirectory(SDL)
-        message(STATUS "Using SDL3 via add_subdirectory")
-        set(SDL3_FOUND TRUE)
-    endif()
-
     # If all else fails, download SDL3
     if(NOT SDL3_FOUND)
         include(FetchContent)
@@ -141,8 +134,20 @@ else()
             "C:/Program Files/CURL/include" "C:/Program Files (x86)/CURL/include")
     endif()
 
-    find_package(CURL REQUIRED)
-    include_directories(${CURL_INCLUDE_DIR})
+    find_package(CURL QUIET)
+    if(NOT CURL_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            CURL
+            GIT_REPOSITORY https://github.com/curl/curl.git
+            GIT_TAG master
+            GIT_SHALLOW TRUE
+            GIT_PROGRESS TRUE)
+        message(STATUS "Using CURL via FetchContent")
+        FetchContent_MakeAvailable(CURL)
+    endif()
+
+    include_directories(${CURL_SOURCE_DIR}/include)
 
     if(APPLE)
         target_link_libraries(craft-sdl3 OpenGL::GL SDL3::SDL3 CURL::libcurl)
