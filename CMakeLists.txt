@@ -61,7 +61,7 @@ if(BUILD_FOR_ANDROID)
         ${DEAR_IMGUI_SRCS}
         ${DEAR_IMGUI_HEADERS}
         ${CRAFT_SOURCE_FILES})
-    set(JAVA_PKG_NAME "com.voxwerks.craft")
+    set(JAVA_PKG_NAME "com.example.craft")
     set(SDL_DIR_NAME SDL-main)
     set(ANDROID_BUILD_SCRIPT "${CMAKE_BINARY_DIR}/${SDL_DIR_NAME}/build-scripts/androidbuild.sh")
 
@@ -114,7 +114,7 @@ else()
         FetchContent_Declare(
             SDL
             GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-            GIT_TAG main  # Can replace this with a particular git tag or git hash
+            GIT_TAG main
             GIT_SHALLOW TRUE
             GIT_PROGRESS TRUE
         )
@@ -156,4 +156,6 @@ else()
     if(MINGW)
         target_link_libraries(craft-sdl3 ws2_32.lib OpenGL::GL SDL3::SDL3 CURL::libcurl)
     endif()
+
+    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/shaders" DESTINATION "${CMAKE_BINARY_DIR}")
 endif()
