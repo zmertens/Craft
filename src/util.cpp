@@ -1,11 +1,13 @@
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cerrno>
 
 #include <SDL3/SDL.h>
 
-#include "lodepng.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 #include "matrix.h"
 #include "util.h"
 
@@ -40,7 +42,7 @@ char *load_file(const char *path) {
     fseek(file, 0, SEEK_END);
     int length = ftell(file);
     rewind(file);
-    char *data = calloc(length + 1, sizeof(char));
+    char *data = (char*) calloc(length + 1, sizeof(char));
     fread(data, 1, length, file);
     fclose(file);
     return data;
@@ -60,7 +62,7 @@ void del_buffer(GLuint buffer) {
 }
 
 GLfloat *malloc_faces(int components, int faces) {
-    return malloc(sizeof(GLfloat) * 6 * components * faces);
+    return (GLfloat*) malloc(sizeof(GLfloat) * 6 * components * faces);
 }
 
 GLuint gen_faces(int components, int faces, GLfloat *data) {
@@ -79,7 +81,7 @@ GLuint make_shader(GLenum type, const char *source) {
     if (status == GL_FALSE) {
         GLint length;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-        GLchar *info = calloc(length, sizeof(GLchar));
+        GLchar *info = (GLchar*) calloc(length, sizeof(GLchar));
         glGetShaderInfoLog(shader, length, NULL, info);
         fprintf(stderr, "glCompileShader failed:\n%s\n", info);
         free(info);
@@ -104,7 +106,7 @@ GLuint make_program(GLuint shader1, GLuint shader2) {
     if (status == GL_FALSE) {
         GLint length;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
-        GLchar *info = calloc(length, sizeof(GLchar));
+        GLchar *info = (GLchar*) calloc(length, sizeof(GLchar));
         glGetProgramInfoLog(program, length, NULL, info);
         fprintf(stderr, "glLinkProgram failed: %s\n", info);
         free(info);
@@ -128,7 +130,7 @@ void flip_image_vertical(
 {
     unsigned int size = width * height * 4;
     unsigned int stride = sizeof(char) * width * 4;
-    unsigned char *new_data = malloc(sizeof(unsigned char) * size);
+    unsigned char *new_data = (unsigned char*) malloc(sizeof(unsigned char) * size);
     for (unsigned int i = 0; i < height; i++) {
         unsigned int j = height - i - 1;
         memcpy(new_data + j * stride, data + i * stride, stride);
@@ -139,17 +141,19 @@ void flip_image_vertical(
 
 void load_png_texture(const char *file_name) {
     unsigned int error;
-    unsigned char *data;
-    unsigned int width, height;
-    error = lodepng_decode32_file(&data, &width, &height, file_name);
-    if (error) {
-        fprintf(stderr, "load_png_texture %s failed, error %u: %s\n", file_name, error, lodepng_error_text(error));
+    int width, height;
+    // n stores bits-per-pixel
+    int n;
+    unsigned char *data = stbi_load(file_name, &width, &height, &n, 0);
+    // ... replace '0' with '1'..'4' to force that many components per pixel
+    if (data == nullptr) {
+        fprintf(stderr, "stb_load %s failed, error %u\n", file_name, error);
         exit(1);
     }
     flip_image_vertical(data, width, height);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
         GL_UNSIGNED_BYTE, data);
-    free(data);
+    stbi_image_free(data);
 }
 
 char *tokenize(char *str, const char *delim, char **key) {
@@ -195,7 +199,7 @@ int string_width(const char *input) {
 
 int wrap(const char *input, int max_width, char *output, int max_length) {
     *output = '\0';
-    char *text = malloc(sizeof(char) * (strlen(input) + 1));
+    char *text = (char*) malloc(sizeof(char) * (strlen(input) + 1));
     strcpy(text, input);
     int space_width = char_width(' ');
     int line_number = 0;

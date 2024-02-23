@@ -27,6 +27,10 @@ SOFTWARE.
 #ifndef _noise_h_
 #define _noise_h_
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 void seed(unsigned int x);
 
 float simplex2(
@@ -36,5 +40,9 @@ float simplex2(
 float simplex3(
     float x, float y, float z,
     int octaves, float persistence, float lacunarity);
+
+#if defined(__cplusplus)
+}
+#endif // cplusplus
 
 #endif

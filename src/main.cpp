@@ -3,6 +3,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <dearimgui/imgui.h>
+#include <dearimgui/backends/imgui_impl_sdl3.h>
+#include <dearimgui/backends/imgui_impl_opengl3.h>
+
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <SDL3/SDL_opengles2.h>
 #else
@@ -13,11 +17,12 @@
 
 // #include <curl/curl.h>
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <string>
 #include "auth.h"
 #include "client.h"
 #include "config.h"
@@ -26,9 +31,9 @@
 #include "item.h"
 #include "map.h"
 #include "matrix.h"
-#include "noise.h"
+#include <noise/noise.h>
 #include "sign.h"
-#include "tinycthread.h"
+#include <tinycthread/tinycthread.h>
 #include "util.h"
 #include "world.h"
 
@@ -66,7 +71,7 @@ GLenum glCheckError_(const char *file, int line)
     GLenum errorCode;
     while ((errorCode = glGetError()) != GL_NO_ERROR)
     {
-        char* error;
+        std::string error = "";
         switch (errorCode)
         {
             case GL_INVALID_ENUM: error = "INVALID_ENUM"; break;
@@ -78,7 +83,7 @@ GLenum glCheckError_(const char *file, int line)
             case GL_INVALID_FRAMEBUFFER_OPERATION: error = "INVALID_FRAMEBUFFER_OPERATION"; break;
         }
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, 
-            "OpenGL ERROR: %s\n\t\tFILE: %s, LINE: %d\n", error, file, line);
+            "OpenGL ERROR: %s\n\t\tFILE: %s, LINE: %d\n", error.c_str(), file, line);
     }
     return errorCode;
 }
@@ -304,9 +309,9 @@ void get_motion_vector(int flying, int sz, int sx, float rx, float ry,
 }
 
 GLuint gen_crosshair_buffer() {
-    int x = g->width / 2;
-    int y = g->height / 2;
-    int p = 10 * g->scale;
+    float x = static_cast<float>(g->width) / 2.0f;
+    float y = static_cast<float>(g->height) / 2.0f;
+    float p = 10.f * static_cast<float>(g->scale);
     float data[] = {
         x, y - p, x, y + p,
         x - p, y, x + p, y
@@ -616,18 +621,20 @@ int chunk_distance(Chunk *chunk, int p, int q) {
 }
 
 int chunk_visible(float planes[6][4], int p, int q, int miny, int maxy) {
-    int x = p * CHUNK_SIZE - 1;
-    int z = q * CHUNK_SIZE - 1;
-    int d = CHUNK_SIZE + 1;
+    float miny_f = static_cast<float>(miny);
+    float maxy_f = static_cast<float>(maxy);
+    float x = static_cast<float>(p * CHUNK_SIZE - 1);
+    float z = static_cast<float>(q * CHUNK_SIZE - 1);
+    float d = static_cast<float>(CHUNK_SIZE + 1);
     float points[8][3] = {
-        {x + 0, miny, z + 0},
-        {x + d, miny, z + 0},
-        {x + 0, miny, z + d},
-        {x + d, miny, z + d},
-        {x + 0, maxy, z + 0},
-        {x + d, maxy, z + 0},
-        {x + 0, maxy, z + d},
-        {x + d, maxy, z + d}
+        {x + 0.f, miny_f, z + 0.f},
+        {x + d, miny_f, z + 0.f},
+        {x + 0.f, miny_f, z + d},
+        {x + d, miny_f, z + d},
+        {x + 0.f, maxy_f, z + 0.f},
+        {x + d, maxy_f, z + 0.f},
+        {x + 0.f, maxy_f, z + d},
+        {x + d, maxy_f, z + d}
     };
     int n = g->ortho ? 4 : 6;
     for (int i = 0; i < n; i++) {
@@ -1303,17 +1310,17 @@ void delete_chunks() {
     State *states[3] = {s1, s2, s3};
     for (int i = 0; i < count; i++) {
         Chunk *chunk = g->chunks + i;
-        int delete = 1;
+        int remove_chunk = 1;
         for (int j = 0; j < 3; j++) {
             State *s = states[j];
             int p = chunked(s->x);
             int q = chunked(s->z);
             if (chunk_distance(chunk, p, q) < g->delete_radius) {
-                delete = 0;
+                remove_chunk = 0;
                 break;
             }
         }
-        if (delete) {
+        if (remove_chunk) {
             map_free(&chunk->map);
             map_free(&chunk->lights);
             sign_list_free(&chunk->signs);
@@ -1470,9 +1477,9 @@ void ensure_chunks_worker(Player *player, Worker *worker) {
                 other = find_chunk(chunk->p + dp, chunk->q + dq);
             }
             if (other) {
-                Map *block_map = malloc(sizeof(Map));
+                Map *block_map = (Map*) malloc(sizeof(Map));
                 map_copy(block_map, &other->map);
-                Map *light_map = malloc(sizeof(Map));
+                Map *light_map = (Map*) malloc(sizeof(Map));
                 map_copy(light_map, &other->lights);
                 item->block_maps[dp + 1][dq + 1] = block_map;
                 item->light_maps[dp + 1][dq + 1] = light_map;
@@ -2613,7 +2620,7 @@ void create_window_and_context() {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     g->window = SDL_CreateWindow("Craft", window_width, window_height, window_flags);
-    g->context = SDL_GL_CreateContext(g->window);
+    g->context = (SDL_GLContext*) SDL_GL_CreateContext(g->window);
 
     SDL_GL_MakeCurrent(g->window, g->context);
 
@@ -2883,6 +2890,45 @@ int main(int argc, char **argv) {
         thrd_create(&worker->thrd, worker_run, worker);
     }
 
+    // DEAR IMGUI INIT //
+        // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForOpenGL(g->window, g->context);
+    const char* glsl_version = "#version 130";
+    ImGui_ImplOpenGL3_Init(glsl_version);
+
+    // Load Fonts
+    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
+    // - If the file cannot be loaded, the function will return a nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
+    // - Read 'docs/FONTS.md' for more instructions and details.
+    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+    // - Our Emscripten build process allows embedding fonts to be accessible at runtime from the "fonts/" folder. See Makefile.emscripten for details.
+    //io.Fonts->AddFontDefault();
+    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
+    //IM_ASSERT(font != nullptr);
+
+    // Our state
+    bool show_demo_window = true;
+    bool show_another_window = false;
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
     // RENDER LOOP //
     int running = 1;
     while (running) {
@@ -2960,6 +3006,48 @@ int main(int argc, char **argv) {
                 break;
             }
 
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+            ImGui::Checkbox("Another Window", &show_another_window);
+
+            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+                counter++;
+            ImGui::SameLine();
+            ImGui::Text("counter = %d", counter);
+
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            ImGui::End();
+        }
+
+        // 3. Show another simple window.
+        if (show_another_window)
+        {
+            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            ImGui::Text("Hello from another window!");
+            if (ImGui::Button("Close Me"))
+                show_another_window = false;
+            ImGui::End();
+        }
+
             // HANDLE DATA FROM SERVER //
             char *buffer = client_recv();
             if (buffer) {
@@ -2993,8 +3081,9 @@ int main(int argc, char **argv) {
             Player *player = g->players + g->observe1;
             
             // RENDER 3-D SCENE //
-            glClear(GL_COLOR_BUFFER_BIT);
-            glClear(GL_DEPTH_BUFFER_BIT);
+            ImGui::Render();
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             
             render_sky(&sky_attrib, player, sky_buffer);
             glClear(GL_DEPTH_BUFFER_BIT);
@@ -3106,7 +3195,7 @@ int main(int argc, char **argv) {
                     
                 }
             }
-        
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             SDL_GL_SwapWindow(g->window);
 #if defined(DEBUGGING)
             glGetError();
@@ -3123,6 +3212,11 @@ int main(int argc, char **argv) {
         delete_all_chunks();
         delete_all_players();
     } // RENDER LOOP
+
+    SDL_Log("Cleaning up ImGui objects. . .");
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
 
     SDL_Log("Cleaning up OpenGL objects. . .");
     glDeleteTextures(1, &texture);

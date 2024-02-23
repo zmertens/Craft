@@ -1,7 +1,7 @@
 // #include <curl/curl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include "auth.h"
 
 #define MAX_POST_LENGTH 1024
@@ -10,7 +10,7 @@
 size_t write_function(char *data, size_t size, size_t count, void *arg) {
     size_t length = size * count;
     char *dst = (char *)arg;
-    char *src = malloc(length + 1);
+    char *src = (char*) malloc(length + 1);
     memcpy(src, data, length);
     src[length] = '\0';
     strncat(dst, src, MAX_RESPONSE_LENGTH - strlen(dst) - 1);

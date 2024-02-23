@@ -28,12 +28,11 @@ set(DEAR_IMGUI_HEADERS
 
 set(DEP_C_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/glad/src/glad_3_0.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/lodepng/lodepng.c
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/noise/noise.c
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/sqlite/sqlite3.c
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/tinycthread/tinycthread.c)
 
-file(GLOB CRAFT_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
+file(GLOB CRAFT_CPP_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 option(BUILD_FOR_ANDROID "Building for Android using SDL3" OFF)
 
@@ -93,13 +92,10 @@ if(BUILD_FOR_ANDROID)
 else()
     message(STATUS "Building SDL3 app for Desktop...")
 
-    add_executable(craft-sdl3 ${DEP_C_FILES} ${DEAR_IMGUI_SRCS} ${CRAFT_SOURCE_FILES})
+    add_executable(craft-sdl3 ${DEAR_IMGUI_SRCS} ${DEP_C_FILES} ${CRAFT_CPP_FILES})
 
     include_directories(deps/glad/include)
-    include_directories(deps/lodepng)
-    include_directories(deps/noise)
-    include_directories(deps/sqlite)
-    include_directories(deps/tinycthread)
+    include_directories(deps)
     include_directories(deps/dearimgui)
 
     find_package(OpenGL REQUIRED)
@@ -118,7 +114,7 @@ else()
         FetchContent_Declare(
             SDL
             GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-            GIT_TAG main  # Replace this with a particular git tag or git hash
+            GIT_TAG main  # Can replace this with a particular git tag or git hash
             GIT_SHALLOW TRUE
             GIT_PROGRESS TRUE
         )
