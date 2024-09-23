@@ -114,7 +114,7 @@ else()
         FetchContent_Declare(
             SDL
             GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-            GIT_TAG main
+            GIT_TAG main 
             GIT_SHALLOW TRUE
             GIT_PROGRESS TRUE
         )

@@ -24,6 +24,10 @@ freely, subject to the following restrictions:
 #ifndef _TINYCTHREAD_H_
 #define _TINYCTHREAD_H_
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /**
 * @file
 * @mainpage TinyCThread API Reference
@@ -109,9 +113,9 @@ freely, subject to the following restrictions:
 /* Emulate struct timespec */
 #if defined(_TTHREAD_WIN32_)
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+// #if defined(__cplusplus)
+// extern "C" {
+// #endif
 
 struct _ttherad_timespec {
   time_t tv_sec;
@@ -440,8 +444,8 @@ void *tss_get(tss_t key);
 int tss_set(tss_t key, void *val);
 
 #if defined(__cplusplus)
-} // extern "C" {
-#endif
+}
+#endif // cplusplus
 
 #endif /* _TINYTHREAD_H_ */
 

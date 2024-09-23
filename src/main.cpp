@@ -24,7 +24,6 @@
 #include <ctime>
 #include <string>
 #include "auth.h"
-#include "client.h"
 #include "config.h"
 #include "cube.h"
 #include "db.h"
@@ -186,7 +185,7 @@ typedef struct {
 
 typedef struct {
     SDL_Window *window;
-    SDL_GLContext *context;
+    SDL_GLContext context;
     Worker workers[WORKERS];
     Chunk chunks[MAX_CHUNKS];
     int chunk_count;
@@ -1265,7 +1264,7 @@ void load_chunk(WorkerItem *item) {
 
 void request_chunk(int p, int q) {
     int key = db_get_key(p, q);
-    client_chunk(p, q, key);
+    // client_chunk(p, q, key);
 }
 
 void init_chunk(Chunk *chunk, int p, int q) {
@@ -1583,7 +1582,7 @@ void set_sign(int x, int y, int z, int face, const char *text) {
     int p = chunked(x);
     int q = chunked(z);
     _set_sign(p, q, x, y, z, face, text, 1);
-    client_sign(x, y, z, face, text);
+    // client_sign(x, y, z, face, text);
 }
 
 void toggle_light(int x, int y, int z) {
@@ -1595,7 +1594,7 @@ void toggle_light(int x, int y, int z) {
         int w = map_get(map, x, y, z) ? 0 : 15;
         map_set(map, x, y, z, w);
         db_insert_light(p, q, x, y, z, w);
-        client_light(x, y, z, w);
+        // client_light(x, y, z, w);
         dirty_chunk(chunk);
     }
 }
@@ -1652,7 +1651,7 @@ void set_block(int x, int y, int z, int w) {
             _set_block(p + dx, q + dz, x, y, z, -w, 1);
         }
     }
-    client_block(x, y, z, w);
+    // client_block(x, y, z, w);
 }
 
 void record_block(int x, int y, int z, int w) {
@@ -1894,23 +1893,23 @@ void login() {
     char username[128] = {0};
     char identity_token[128] = {0};
     char access_token[128] = {0};
-    if (db_auth_get_selected(username, 128, identity_token, 128)) {
-        printf("Contacting login server for username: %s\n", username);
-        if (get_access_token(
-            access_token, 128, username, identity_token))
-        {
-            printf("Successfully authenticated with the login server\n");
-            client_login(username, access_token);
-        }
-        else {
-            printf("Failed to authenticate with the login server\n");
-            client_login("", "");
-        }
-    }
-    else {
-        printf("Logging in anonymously\n");
-        client_login("", "");
-    }
+    // if (db_auth_get_selected(username, 128, identity_token, 128)) {
+    //     printf("Contacting login server for username: %s\n", username);
+    //     if (get_access_token(
+    //         access_token, 128, username, identity_token))
+    //     {
+    //         printf("Successfully authenticated with the login server\n");
+    //         client_login(username, access_token);
+    //     }
+    //     else {
+    //         printf("Failed to authenticate with the login server\n");
+    //         client_login("", "");
+    //     }
+    // }
+    // else {
+    //     printf("Logging in anonymously\n");
+    //     client_login("", "");
+    // }
 }
 
 void copy() {
@@ -2104,7 +2103,7 @@ void parse_command(const char *buffer, int forward) {
     char username[128] = {0};
     char token[128] = {0};
     char server_addr[MAX_ADDR_LENGTH];
-    int server_port = DEFAULT_PORT;
+    int server_port = 1; //DEFAULT_PORT;
     char filename[MAX_PATH_LENGTH];
     int radius, count, xc, yc, zc;
     if (sscanf(buffer, "/identity %128s %128s", username, token) == 2) {
@@ -2206,7 +2205,7 @@ void parse_command(const char *buffer, int forward) {
         cylinder(&g->block0, &g->block1, radius, 0);
     }
     else if (forward) {
-        client_talk(buffer);
+        // client_talk(buffer);
     }
 }
 
@@ -2259,7 +2258,7 @@ void on_middle_click() {
 // https://github.com/rswinkle/Craft/blob/sdl/src/main.c
 int handle_events(double dt) {
     // Handle window init and force a scale
-    static SDL_bool first_event = 1;
+    static bool first_event = 1;
 	static float dy = 0;
 	State* s = &g->players->state;
 	int sz = 0;
@@ -2275,7 +2274,7 @@ int handle_events(double dt) {
 	SDL_Keymod mod_state = SDL_GetModState();
 
 	int control = mod_state ;//& (KMOD_LCTRL | KMOD_RCTRL | KMOD_LGUI | KMOD_RGUI);
-    int exclusive = SDL_GetRelativeMouseMode();
+    int exclusive = SDL_GetWindowRelativeMouseMode(g->window);
 
 	while (SDL_PollEvent(&e)) {
 		/*
@@ -2290,13 +2289,13 @@ int handle_events(double dt) {
 		case SDL_EVENT_QUIT:
 			return 1;
 		case SDL_EVENT_KEY_UP:
-			sc = e.key.keysym.scancode;
+			sc = e.key.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
 				if (g->typing) {
 					g->typing = 0;
 				} else if (exclusive) {
-					SDL_SetRelativeMouseMode(SDL_FALSE);
+					SDL_SetWindowRelativeMouseMode(g->window, false);
 				} else {
 					return 1;
 				}
@@ -2305,7 +2304,7 @@ int handle_events(double dt) {
 			break;
 
 		case SDL_EVENT_KEY_DOWN:
-			sc = e.key.keysym.scancode;
+			sc = e.key.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_RETURN:
 				if (g->typing) {
@@ -2325,7 +2324,7 @@ int handle_events(double dt) {
 						} else if (g->typing_buffer[0] == '/') {
 							parse_command(g->typing_buffer, 1);
 						} else {
-							client_talk(g->typing_buffer);
+							// client_talk(g->typing_buffer);
 						}
 					}
 				} else {
@@ -2416,19 +2415,19 @@ int handle_events(double dt) {
 				g->typing = 1;
 				g->typing_buffer[0] = '\0';
 				g->text_len = 0;
-				SDL_StartTextInput();
+				SDL_StartTextInput(g->window);
 				break;
 
 			case KEY_COMMAND:
 				g->typing = 1;
 				g->typing_buffer[0] = '\0';
-				SDL_StartTextInput();
+				SDL_StartTextInput(g->window);
 				break;
 
 			case KEY_SIGN:
 				g->typing = 1;
 				g->typing_buffer[0] = '\0';
-				SDL_StartTextInput();
+				SDL_StartTextInput(g->window);
 				break;
 
 			}
@@ -2474,7 +2473,7 @@ int handle_events(double dt) {
 						on_left_click();
 					}
 				} else {
-					SDL_SetRelativeMouseMode(SDL_TRUE);
+					SDL_SetWindowRelativeMouseMode(g->window, true);
 				}
 			} else if (e.button.button == SDL_BUTTON_RIGHT) {
 				if (exclusive) {
@@ -2519,7 +2518,7 @@ int handle_events(double dt) {
 		} // switch
 	}
 
-	const Uint8 *state = SDL_GetKeyboardState(NULL);
+	const bool *state = SDL_GetKeyboardState(NULL);
 
 	if (!g->typing) {
 		float m = dt * 1.0;  // what is this for?
@@ -2584,27 +2583,27 @@ void create_window_and_context() {
     Uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
     int window_width = WINDOW_WIDTH;
     int window_height = WINDOW_HEIGHT;
-    if (FULLSCREEN) {
-        SDL_DisplayID display = SDL_GetPrimaryDisplay();
-        int num_modes = 0;
-        const SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &num_modes);
-        if (modes) {
-            for (int i = 0; i < num_modes; ++i) {
-                const SDL_DisplayMode *mode = modes[i];
-                SDL_Log("Display %" SDL_PRIu32 " mode %d: %dx%d@%gx %gHz\n",
-                    display, i, mode->w, mode->h, mode->pixel_density, mode->refresh_rate);
-            }
-        }
+    // if (FULLSCREEN) {
+    //     SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    //     int num_modes = 0;
+    //     const SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &num_modes);
+    //     if (modes) {
+    //         for (int i = 0; i < num_modes; ++i) {
+    //             const SDL_DisplayMode *mode = modes[i];
+    //             SDL_Log("Display %" SDL_PRIu32 " mode %d: %dx%d@%gx %gHz\n",
+    //                 display, i, mode->w, mode->h, mode->pixel_density, mode->refresh_rate);
+    //         }
+    //     }
         
-        window_width = modes[num_modes - 1]->w;
-        window_height = modes[num_modes - 1]->h;
+    //     window_width = modes[num_modes - 1]->w;
+    //     window_height = modes[num_modes - 1]->h;
 
-        SDL_free(modes);
+    //     SDL_free(modes);
 
-        window_flags |= SDL_WINDOW_FULLSCREEN;
-    } else {
+        // window_flags |= SDL_WINDOW_FULLSCREEN;
+    // } else {
         window_flags |= SDL_WINDOW_RESIZABLE;
-    }
+    // }
 
     // GL 3.0 + GLSL 130
     const char* glsl_version = "#version 130";
@@ -2620,7 +2619,7 @@ void create_window_and_context() {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     g->window = SDL_CreateWindow("Craft", window_width, window_height, window_flags);
-    g->context = (SDL_GLContext*) SDL_GL_CreateContext(g->window);
+    g->context = SDL_GL_CreateContext(g->window);
 
     SDL_GL_MakeCurrent(g->window, g->context);
 
@@ -2751,7 +2750,7 @@ int main(int argc, char **argv) {
     rand();
 
     // SDL INITIALIZATION //
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) < 0) {
         SDL_LogError(SDL_LOG_CATEGORY_ERROR, "SDL_Init failed (%s)\n", SDL_GetError());
         return -1;
     }
@@ -2764,7 +2763,7 @@ int main(int argc, char **argv) {
     }
 
     SDL_ShowWindow(g->window);
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    SDL_SetWindowRelativeMouseMode(g->window, false);
 
     if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, 
@@ -2866,7 +2865,7 @@ int main(int argc, char **argv) {
     if (argc == 2 || argc == 3) {
         g->mode = MODE_ONLINE;
         strncpy(g->server_addr, argv[1], MAX_ADDR_LENGTH);
-        g->server_port = argc == 3 ? atoi(argv[2]) : DEFAULT_PORT;
+        // g->server_port = argc == 3 ? atoi(argv[2]) : DEFAULT_PORT;
         snprintf(g->db_path, MAX_PATH_LENGTH,
             "cache.%s.%d.db", g->server_addr, g->server_port);
     }
@@ -2946,17 +2945,17 @@ int main(int argc, char **argv) {
         }
 
         // CLIENT INITIALIZATION //
-        if (g->mode == MODE_ONLINE) {
-            client_enable();
-            client_connect(g->server_addr, g->server_port);
-            client_start();
-            client_version(1);
-            login();
-        }
+        // if (g->mode == MODE_ONLINE) {
+        //     client_enable();
+        //     client_connect(g->server_addr, g->server_port);
+        //     client_start();
+        //     client_version(1);
+        //     login();
+        // }
 
         // LOCAL VARIABLES //
         reset_model();
-        FPS fps = {0, 0, 0};
+        // FPS fps = {0, 0, 0};
         double last_commit = SDL_GetTicks();
         double last_update = SDL_GetTicks();
         
@@ -2985,17 +2984,14 @@ int main(int argc, char **argv) {
                 g->time_changed = 0;
                 last_commit = SDL_GetTicks();
                 last_update = SDL_GetTicks();
-                memset(&fps, 0, sizeof(fps));
+                // memset(&fps, 0, sizeof(fps));
             }
-            update_fps(&fps);
+            // update_fps(&fps);
             double now = SDL_GetTicks();
             double dt = (now - previous) / 1000.0;
             dt = MIN(dt, 0.2);
             dt = MAX(dt, 0.0);
             previous = now;
-#if defined(DEBUGGING)
-            SDL_Log("fps: %d\n", fps.fps);
-#endif
 
             if (handle_events(dt)) {
                 running = 0;
@@ -3049,11 +3045,11 @@ int main(int argc, char **argv) {
         }
 
             // HANDLE DATA FROM SERVER //
-            char *buffer = client_recv();
-            if (buffer) {
-                parse_buffer(buffer);
-                free(buffer);
-            }
+            // char *buffer = client_recv();
+            // if (buffer) {
+            //     parse_buffer(buffer);
+            //     free(buffer);
+            // }
 
             // FLUSH DATABASE //
             if (now - last_commit > COMMIT_INTERVAL) {
@@ -3062,10 +3058,10 @@ int main(int argc, char **argv) {
             }
 
             // SEND POSITION TO SERVER //
-            if (now - last_update > 0.1) {
-                last_update = now;
-                client_position(s->x, s->y, s->z, s->rx, s->ry);
-            }
+            // if (now - last_update > 0.1) {
+            //     last_update = now;
+            //     client_position(s->x, s->y, s->z, s->rx, s->ry);
+            // }
 
             // PREPARE TO RENDER //
             g->observe1 = g->observe1 % g->player_count;
@@ -3116,10 +3112,10 @@ int main(int argc, char **argv) {
                 hour = hour ? hour : 12;
                 snprintf(
                     text_buffer, 1024,
-                    "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d, %d] %d%cm %dfps",
+                    "(%d, %d) (%.2f, %.2f, %.2f) [%d, %d, %d] %d%cm",
                     chunked(s->x), chunked(s->z), s->x, s->y, s->z,
                     g->player_count, g->chunk_count,
-                    face_count * 2, hour, am_pm, fps.fps);
+                    face_count * 2, hour, am_pm);
                 render_text(&text_attrib, ALIGN_LEFT, tx, ty, ts, text_buffer);
                 ty -= ts * 2;
             }
@@ -3206,8 +3202,8 @@ int main(int argc, char **argv) {
         db_save_state(s->x, s->y, s->z, s->rx, s->ry);
         db_close();
         db_disable();
-        client_stop();
-        client_disable();
+        // client_stop();
+        // client_disable();
         del_buffer(sky_buffer);
         delete_all_chunks();
         delete_all_players();
@@ -3232,7 +3228,7 @@ int main(int argc, char **argv) {
 #endif
 
     SDL_Log("Cleaning up SDL objects. . .");
-    SDL_GL_DeleteContext(g->context);
+    SDL_GL_DestroyContext(g->context);
     SDL_DestroyWindow(g->window);
     SDL_Quit();
     
